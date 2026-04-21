@@ -5,17 +5,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
     let currentUser = null;
 
-    // Check session on load
-    const checkSession = async () => {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
-        if (data.success) {
-            authOverlay.classList.remove('active');
-            currentUser = data;
-            initUI();
-        }
-    };
-
     // --- NAVIGATION ---
     const navDests = document.querySelectorAll('.nav-dest');
     const views = document.querySelectorAll('.view');

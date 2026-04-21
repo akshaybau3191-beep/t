@@ -1,4 +1,4 @@
-name: Deploy to AWS Lightsail
+name: Deploy to Lightsail
 
 on:
   push:
@@ -9,19 +9,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Deploy to Server
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
+          host: trade.truehealthayurveda.com
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/${{ secrets.SERVER_USER }}/Ai-Bot-Trader
+            cd /home/ubuntu/Ai-Bot-Trader
+            git reset --hard HEAD
             git pull origin main
-            source venv/bin/activate
-            pip install -r requirements.txt
+            # Ensure permissions are correct after pull
+            sudo chown -R ubuntu:www-data .
+            sudo chmod -R 775 .
+            # Restart the service
             sudo systemctl restart trading_bot
-            sudo systemctl restart nginx
