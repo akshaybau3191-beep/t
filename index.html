@@ -116,7 +116,7 @@
                 </div>
             </div>
 
-            <div class="m3-card">
+            <div class="m3-card user-only">
                 <div class="m3-card-title">Upgrade Subscription</div>
                 <p style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-bottom:15px;">
                     Pay <b>Rs.399/-</b> for 1 Month access to premium AI signals and automated trading.
@@ -193,14 +193,29 @@
 
         <!-- Admin View -->
         <main id="view-admin" class="view admin-only">
+            <div class="stats-row" style="margin-bottom: 20px;">
+                <div class="stat-item">
+                    <div class="stat-label">Total Users</div>
+                    <div id="admin-total-users" class="stat-value">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Active Users</div>
+                    <div id="admin-active-users" class="stat-value" style="color:var(--success);">0</div>
+                </div>
+            </div>
+
             <div class="m3-card">
                 <div class="m3-card-title">Subscription Requests</div>
                 <div id="admin-sub-requests">
                     <p style="text-align:center; padding:10px; font-size:12px; color:var(--md-sys-color-on-surface-variant);">No pending requests</p>
                 </div>
             </div>
+
             <div class="m3-card">
-                <div class="m3-card-title">All Users</div>
+                <div class="m3-card-title">User Management</div>
+                <div class="m3-input-group">
+                    <input type="text" id="admin-user-search" class="m3-input" placeholder="Search by name or mobile...">
+                </div>
                 <div id="admin-user-list"></div>
             </div>
         </main>

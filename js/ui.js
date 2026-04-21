@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function initUI() {
         if (currentUser.role === 'admin') {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+            document.querySelectorAll('.user-only').forEach(el => el.style.display = 'none');
             loadAdminData();
         }
         
@@ -196,6 +197,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- ADMIN LOGIC ---
+    let allUsers = [];
+
     async function loadAdminData() {
         loadAdminUsers();
         loadAdminRequests();
@@ -203,7 +206,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadAdminUsers() {
         const res = await fetch('/api/admin/users');
-        const users = await res.json();
+        allUsers = await res.json();
+        renderUserList(allUsers);
+        
+        // Update Admin Stats
+        document.getElementById('admin-total-users').textContent = allUsers.length;
+        document.getElementById('admin-active-users').textContent = allUsers.filter(u => u.is_active).length;
+    }
+
+    function renderUserList(users) {
         const container = document.getElementById('admin-user-list');
         container.innerHTML = '';
         users.forEach(u => {
@@ -212,7 +223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             div.innerHTML = `
                 <div class="item-info">
                     <span class="title">${u.username}</span>
-                    <span class="subtitle">Expires: ${u.expiry}</span>
+                    <span class="subtitle">Exp: ${u.expiry} | Role: ${u.role}</span>
                 </div>
                 <div style="display:flex; gap:10px; align-items:center;">
                     <label class="switch">
@@ -224,6 +235,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             container.appendChild(div);
         });
     }
+
+    document.getElementById('admin-user-search').oninput = (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = allUsers.filter(u => 
+            u.username.toLowerCase().includes(query) || 
+            (u.mobile && u.mobile.includes(query))
+        );
+        renderUserList(filtered);
+    };
 
     async function loadAdminRequests() {
         const res = await fetch('/api/admin/sub_requests');
