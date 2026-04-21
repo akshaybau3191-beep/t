@@ -335,29 +335,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.reload();
     };
 
-    const syncBtn = document.getElementById('sync-portfolio-btn');
-    if (syncBtn) {
-        syncBtn.onclick = async () => {
-            syncBtn.textContent = '⌛ SYNCING...';
-            syncBtn.disabled = true;
-            try {
-                const res = await fetch('/api/user/refresh_angel', { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    updateStats();
-                    updateTrades();
-                } else {
-                    alert(data.message);
-                }
-            } catch (e) {
-                console.error(e);
-            }
-            syncBtn.textContent = '🔄 SYNC';
-            syncBtn.disabled = false;
-        };
-    }
-
     // Auto-Login Check on Load
     const checkSession = async () => {
         try {
