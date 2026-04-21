@@ -3,196 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Elite SaaS Trading Engine | AI Bot Trader</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>Elite Trader | AI Bot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <meta name="description" content="Multi-user proprietary options trading engine with centralized AI execution.">
 </head>
 <body class="dark-mode">
-    <div id="app-container">
+    <div id="app-shell">
         <!-- Auth Overlay -->
         <div id="auth-overlay" class="overlay active">
-            <div class="modal login-modal">
-                <div class="radar-animation"><span></span></div>
-                <h1>ELITE <span class="text-trader">ACCESS</span></h1>
-                <p id="auth-status">Sign in to start trading</p>
+            <div class="modal">
+                <h1 class="brand-logo" style="margin-bottom:10px;">ELITE <span class="text-trader">TRADER</span></h1>
+                <p id="auth-status" style="font-size:12px; color:var(--text-secondary); margin-bottom:25px;">Sign in to start trading</p>
+                
                 <div id="login-form">
                     <div class="input-group">
                         <label>Username</label>
-                        <input type="text" id="login-user" placeholder="Enter Username">
+                        <input type="text" id="login-user">
                     </div>
                     <div class="input-group">
                         <label>Password</label>
-                        <input type="password" id="login-pass" placeholder="Enter Password">
+                        <input type="password" id="login-pass">
                     </div>
                     <button id="login-btn" class="primary-btn">SIGN IN</button>
-                    <p style="margin-top:20px; font-size:13px;">New? <a href="#" id="show-register" style="color:var(--accent); font-weight:700; text-decoration:none;">Create Account</a></p>
+                    <p style="margin-top:20px; font-size:12px;">New? <a href="#" id="show-register" style="color:var(--accent); text-decoration:none; font-weight:700;">Create Account</a></p>
                 </div>
+
                 <div id="register-form" style="display:none;">
                     <div class="input-group">
                         <label>Username</label>
-                        <input type="text" id="reg-user" placeholder="Choose Username">
+                        <input type="text" id="reg-user">
                     </div>
                     <div class="input-group">
                         <label>Password</label>
-                        <input type="password" id="reg-pass" placeholder="Choose Password">
+                        <input type="password" id="reg-pass">
                     </div>
                     <button id="register-btn" class="primary-btn">REGISTER</button>
-                    <p style="margin-top:20px; font-size:13px;">Have account? <a href="#" id="show-login" style="color:var(--accent); font-weight:700; text-decoration:none;">Sign In</a></p>
+                    <p style="margin-top:20px; font-size:12px;">Have account? <a href="#" id="show-login" style="color:var(--accent); text-decoration:none; font-weight:700;">Sign In</a></p>
                 </div>
-            </div>
-        </div>
-
-        <!-- Admin Dashboard Overlay -->
-        <div id="admin-overlay" class="overlay">
-            <div class="modal">
-                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-                    <h1>ADMIN <span class="text-trader">PANEL</span></h1>
-                    <button class="close-modal" style="background:none; border:none; color:white; font-size:30px;">×</button>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                        <thead style="border-bottom:1px solid var(--glass-border);">
-                            <tr>
-                                <th style="text-align:left; padding:10px;">User</th>
-                                <th style="text-align:left; padding:10px;">Status</th>
-                                <th style="text-align:left; padding:10px;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="user-list-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- User Profile/Config Overlay -->
-        <div id="profile-overlay" class="overlay">
-            <div class="modal">
-                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-                    <h1>USER <span class="text-trader">CONFIG</span></h1>
-                    <button class="close-modal" style="background:none; border:none; color:white; font-size:30px;">×</button>
-                </div>
-                <div class="config-grid">
-                    <div class="input-group">
-                        <label>API Key</label>
-                        <input type="password" id="api-key">
-                    </div>
-                    <div class="input-group">
-                        <label>Client Code</label>
-                        <input type="text" id="client-code">
-                    </div>
-                    <div class="input-group">
-                        <label>Trading Pass</label>
-                        <input type="password" id="trading-pass">
-                    </div>
-                    <div class="input-group">
-                        <label>TOTP Secret</label>
-                        <input type="text" id="totp-secret">
-                    </div>
-                    <div class="input-group full-width">
-                        <label>Redirect URL</label>
-                        <input type="text" id="callback-url-display" readonly style="color:var(--success); font-weight:700;">
-                        <button id="copy-callback-btn" class="primary-btn" style="padding:10px; margin-top:5px;">Copy URL</button>
-                    </div>
-                    <div class="input-group full-width">
-                        <label>Static IP (Use in Portal)</label>
-                        <input type="text" id="static-ip-display" readonly style="color:var(--success); font-weight:700;">
-                        <button id="copy-ip-btn" class="primary-btn" style="padding:10px; margin-top:5px;">Copy IP</button>
-                    </div>
-                </div>
-                <button id="save-config-btn" class="primary-btn" style="margin-top:15px;">Save & Connect</button>
             </div>
         </div>
 
         <!-- Header -->
         <header class="app-header">
-            <div class="brand-logo">
-                <span class="text-elite">ELITE</span><span class="text-trader">TRADER</span>
-            </div>
-            <div class="system-status">
-                <span class="status-dot" id="engine-status-dot"></span>
+            <div class="brand-logo">ELITE<span class="text-trader">TRADER</span></div>
+            <div class="status-pill">
+                <span class="dot" id="engine-status-dot"></span>
                 <span id="engine-status">OFFLINE</span>
             </div>
         </header>
 
-        <main class="dashboard-content">
-            <!-- Mobile Stats Row -->
-            <div class="summary-grid">
-                <div class="stat-item">
-                    <div class="label">DAILY P&L</div>
-                    <div id="display-pnl" class="value neutral">₹0.00</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">TRADES</div>
-                    <div id="trades-count" class="value">0</div>
+        <!-- View: Home / Dashboard -->
+        <main id="view-home" class="view-container active">
+            <div class="card">
+                <div class="card-title">Trading Performance</div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Daily P&L</div>
+                        <div id="display-pnl" class="stat-value">₹0.00</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Total Profit</div>
+                        <div id="total-profit" class="stat-value">₹0.00</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="content-grid">
-                <section id="execution-panel" class="panel">
-                    <div class="panel-header">
-                        <h2>ACTIVE TRADES</h2>
-                    </div>
-                    <div class="panel-body" id="active-trade-container">
-                        <div class="empty-trades">
-                            <div class="radar-animation"><span></span></div>
-                            <p style="font-size:12px; color:var(--text-secondary);">Scanning for signals...</p>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="market-scanner" class="panel">
-                    <div class="panel-header">
-                        <h2>AI SIGNALS</h2>
-                    </div>
-                    <div class="panel-body" id="indices-list">
-                        <div class="loading-state">Syncing Market...</div>
-                    </div>
-                </section>
-                
-                <section class="panel">
-                    <div class="panel-header">
-                        <h2>STATS</h2>
-                    </div>
-                    <div class="panel-body">
-                        <div class="stat-item" style="margin-bottom:10px;">
-                            <div class="label">TOTAL PROFIT</div>
-                            <div id="total-profit" class="value success">₹0.00</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="label">CAGR</div>
-                            <div id="cagr-value" class="value">0.00%</div>
-                        </div>
-                    </div>
-                </section>
+            <div class="card">
+                <div class="card-title">Active Positions</div>
+                <div id="active-trade-container">
+                    <p style="font-size:12px; color:var(--text-secondary); text-align:center;">No active trades</p>
+                </div>
             </div>
         </main>
 
-        <!-- Mobile Bottom Navigation -->
-        <nav class="mobile-nav">
-            <div class="nav-item active" onclick="location.reload()">
-                <span class="nav-icon">📊</span>
+        <!-- View: Signals -->
+        <main id="view-signals" class="view-container">
+            <div class="card">
+                <div class="card-title">AI Market Signals</div>
+                <div id="indices-list">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+        </main>
+
+        <!-- View: Config -->
+        <main id="view-config" class="view-container">
+            <div class="card">
+                <div class="card-title">Broker Connection</div>
+                <div class="input-group">
+                    <label>API Key</label>
+                    <input type="password" id="api-key">
+                </div>
+                <div class="input-group">
+                    <label>Client Code</label>
+                    <input type="text" id="client-code">
+                </div>
+                <div class="input-group">
+                    <label>Trading Password</label>
+                    <input type="password" id="trading-pass">
+                </div>
+                <div class="input-group">
+                    <label>TOTP Secret</label>
+                    <input type="text" id="totp-secret">
+                </div>
+                <button id="save-config-btn" class="primary-btn">SAVE & CONNECT</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Portal Settings</div>
+                <div class="input-group">
+                    <label>Static IP (Copy to Portal)</label>
+                    <input type="text" id="static-ip-display" readonly value="3.6.231.207" style="color:var(--success);">
+                </div>
+                <div class="input-group">
+                    <label>Redirect URL</label>
+                    <input type="text" id="callback-url-display" readonly style="color:var(--success);">
+                </div>
+            </div>
+            
+            <button id="logout-btn" class="primary-btn" style="background:var(--danger); margin-top:20px;">LOGOUT</button>
+        </main>
+
+        <!-- View: Admin -->
+        <main id="view-admin" class="view-container admin-only">
+            <div class="card">
+                <div class="card-title">User Management</div>
+                <div id="admin-user-list">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" data-view="home">
+                <span class="nav-icon">🏠</span>
                 <span>Home</span>
             </div>
-            <div class="nav-item" id="profile-btn-nav" onclick="document.getElementById('profile-btn').click()">
-                <span class="nav-icon">⚙️</span>
-                <span>Config</span>
+            <div class="nav-item" data-view="signals">
+                <span class="nav-icon">📈</span>
+                <span>Signals</span>
             </div>
-            <div class="nav-item" onclick="document.getElementById('logout-btn').click()">
-                <span class="nav-icon">🚪</span>
-                <span>Exit</span>
+            <div class="nav-item" data-view="config">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </div>
+            <div class="nav-item admin-only" data-view="admin">
+                <span class="nav-icon">🛡️</span>
+                <span>Admin</span>
             </div>
         </nav>
-
-        <!-- Hidden desktop buttons for JS compatibility -->
-        <div style="display:none;">
-            <button id="profile-btn"></button>
-            <button id="admin-btn"></button>
-            <button id="logout-btn"></button>
-            <input type="checkbox" id="mode-toggle">
-        </div>
     </div>
 
     <!-- Scripts -->
@@ -200,14 +160,5 @@
     <script src="js/angelApi.js"></script>
     <script src="js/engine.js"></script>
     <script src="js/ui.js"></script>
-    <script>
-        // Simple nav toggle for demo
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-            });
-        });
-    </script>
 </body>
 </html>
