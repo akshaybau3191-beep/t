@@ -27,6 +27,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default-unsafe-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "trading.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Added: Database Timeout for Concurrent Scanner Threads
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {"connect_args": {"timeout": 30}}
+# Added: Persistent Session Management
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
+app.config['SESSION_COOKIE_NAME'] = 'elite_trader_session'
 
 # Initialize DB with App
 db.init_app(app)
@@ -97,6 +102,7 @@ def login():
         session['user_id'] = user.id
         session['role'] = user.role
         session['username'] = user.username
+        session.permanent = True # Ensure session persists for 31 days
         mode = user.config.trading_mode if user.config else 'PAPER'
         return jsonify({
             'success': True, 'role': user.role, 'username': user.username,
@@ -104,6 +110,24 @@ def login():
             'expiry': user.expiry_date.strftime('%Y-%m-%d') if user.expiry_date else None
         })
     return jsonify({'success': False, 'message': 'Invalid credentials'})
+
+@app.route('/api/auth/me', methods=['GET'])
+def get_me():
+    if 'user_id' in session:
+        user = db.session.get(User, session['user_id'])
+        if user:
+            mode = user.config.trading_mode if user.config else 'PAPER'
+            return jsonify({
+                'success': True, 'username': user.username, 'role': user.role,
+                'is_active': user.is_active, 'trading_mode': mode,
+                'expiry': user.expiry_date.strftime('%Y-%m-%d') if user.expiry_date else None
+            })
+    return jsonify({'success': False})
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'success': True})
 
 @app.route('/api/user/config', methods=['GET', 'POST'])
 @login_required

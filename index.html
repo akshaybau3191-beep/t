@@ -3,157 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Elite Trader | AI Bot</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
+    <title>Elite Trader | Android Native</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="dark-mode">
-    <div id="app-shell">
-        <!-- Auth Overlay -->
-        <div id="auth-overlay" class="overlay active">
-            <div class="modal">
-                <h1 class="brand-logo" style="margin-bottom:10px;">ELITE <span class="text-trader">TRADER</span></h1>
-                <p id="auth-status" style="font-size:12px; color:var(--text-secondary); margin-bottom:25px;">Sign in to start trading</p>
-                
-                <div id="login-form">
-                    <div class="input-group">
-                        <label>Username</label>
-                        <input type="text" id="login-user">
-                    </div>
-                    <div class="input-group">
-                        <label>Password</label>
-                        <input type="password" id="login-pass">
-                    </div>
-                    <button id="login-btn" class="primary-btn">SIGN IN</button>
-                    <p style="margin-top:20px; font-size:12px;">New? <a href="#" id="show-register" style="color:var(--accent); text-decoration:none; font-weight:700;">Create Account</a></p>
+<body>
+    <!-- Auth Scrim -->
+    <div id="auth-overlay" class="scrim active">
+        <div class="auth-card">
+            <h1 class="app-bar-title" style="margin-bottom: 8px;">Elite Access</h1>
+            <p id="auth-status" style="font-size: 14px; margin-bottom: 24px;">Sign in to continue</p>
+            
+            <div id="login-form">
+                <div class="m3-input-group">
+                    <input type="text" id="login-user" class="m3-input" placeholder="Username">
                 </div>
+                <div class="m3-input-group">
+                    <input type="password" id="login-pass" class="m3-input" placeholder="Password">
+                </div>
+                <button id="login-btn" class="m3-btn">Sign in</button>
+                <p style="margin-top: 24px; font-size: 14px;">Don't have an account? <a href="#" id="show-register" style="color:var(--accent); text-decoration:none; font-weight:700;">Sign up</a></p>
+            </div>
 
-                <div id="register-form" style="display:none;">
-                    <div class="input-group">
-                        <label>Username</label>
-                        <input type="text" id="reg-user">
-                    </div>
-                    <div class="input-group">
-                        <label>Password</label>
-                        <input type="password" id="reg-pass">
-                    </div>
-                    <button id="register-btn" class="primary-btn">REGISTER</button>
-                    <p style="margin-top:20px; font-size:12px;">Have account? <a href="#" id="show-login" style="color:var(--accent); text-decoration:none; font-weight:700;">Sign In</a></p>
+            <div id="register-form" style="display:none;">
+                <div class="m3-input-group">
+                    <input type="text" id="reg-user" class="m3-input" placeholder="Choose Username">
                 </div>
+                <div class="m3-input-group">
+                    <input type="password" id="reg-pass" class="m3-input" placeholder="Choose Password">
+                </div>
+                <button id="register-btn" class="m3-btn">Create account</button>
+                <p style="margin-top: 24px; font-size: 14px;">Already have an account? <a href="#" id="show-login" style="color:var(--accent); text-decoration:none; font-weight:700;">Sign in</a></p>
             </div>
         </div>
+    </div>
 
-        <!-- Header -->
-        <header class="app-header">
-            <div class="brand-logo">ELITE<span class="text-trader">TRADER</span></div>
-            <div class="status-pill">
-                <span class="dot" id="engine-status-dot"></span>
-                <span id="engine-status">OFFLINE</span>
-            </div>
-        </header>
+    <!-- App Bar -->
+    <header class="app-bar">
+        <div class="app-bar-title">Elite Trader</div>
+        <div class="status-indicator">
+            <span class="dot" id="engine-status-dot"></span>
+            <span id="engine-status">Offline</span>
+        </div>
+    </header>
 
-        <!-- View: Home / Dashboard -->
-        <main id="view-home" class="view-container active">
-            <div class="card">
-                <div class="card-title">Trading Performance</div>
-                <div class="stats-grid">
-                    <div class="stat-box">
+    <!-- Main Content pager -->
+    <div class="view-pager">
+        <!-- Dashboard View -->
+        <main id="view-home" class="view active">
+            <div class="m3-card">
+                <div class="m3-card-title">Portfolio Summary</div>
+                <div class="stats-row">
+                    <div class="stat-item">
                         <div class="stat-label">Daily P&L</div>
                         <div id="display-pnl" class="stat-value">₹0.00</div>
                     </div>
-                    <div class="stat-box">
-                        <div class="stat-label">Total Profit</div>
+                    <div class="stat-item">
+                        <div class="stat-label">Realized Profit</div>
                         <div id="total-profit" class="stat-value">₹0.00</div>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-title">Active Positions</div>
+            <div class="m3-card">
+                <div class="m3-card-title">Active Trades</div>
                 <div id="active-trade-container">
-                    <p style="font-size:12px; color:var(--text-secondary); text-align:center;">No active trades</p>
+                    <p style="text-align:center; padding:20px; font-size:14px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>
                 </div>
             </div>
         </main>
 
-        <!-- View: Signals -->
-        <main id="view-signals" class="view-container">
-            <div class="card">
-                <div class="card-title">AI Market Signals</div>
+        <!-- Signals View -->
+        <main id="view-signals" class="view">
+            <div class="m3-card">
+                <div class="m3-card-title">AI Scanner</div>
                 <div id="indices-list">
                     <!-- Dynamic -->
                 </div>
             </div>
         </main>
 
-        <!-- View: Config -->
-        <main id="view-config" class="view-container">
-            <div class="card">
-                <div class="card-title">Broker Connection</div>
-                <div class="input-group">
+        <!-- Settings View -->
+        <main id="view-config" class="view">
+            <div class="m3-card">
+                <div class="m3-card-title">Broker Configuration</div>
+                <div class="m3-input-group">
                     <label>API Key</label>
-                    <input type="password" id="api-key">
+                    <input type="password" id="api-key" class="m3-input">
                 </div>
-                <div class="input-group">
+                <div class="m3-input-group">
                     <label>Client Code</label>
-                    <input type="text" id="client-code">
+                    <input type="text" id="client-code" class="m3-input">
                 </div>
-                <div class="input-group">
+                <div class="m3-input-group">
                     <label>Trading Password</label>
-                    <input type="password" id="trading-pass">
+                    <input type="password" id="trading-pass" class="m3-input">
                 </div>
-                <div class="input-group">
+                <div class="m3-input-group">
                     <label>TOTP Secret</label>
-                    <input type="text" id="totp-secret">
+                    <input type="text" id="totp-secret" class="m3-input">
                 </div>
-                <button id="save-config-btn" class="primary-btn">SAVE & CONNECT</button>
+                <button id="save-config-btn" class="m3-btn">Save settings</button>
             </div>
 
-            <div class="card">
-                <div class="card-title">Portal Settings</div>
-                <div class="input-group">
-                    <label>Static IP (Copy to Portal)</label>
-                    <input type="text" id="static-ip-display" readonly value="3.6.231.207" style="color:var(--success);">
+            <div class="m3-card">
+                <div class="m3-card-title">System Info</div>
+                <div class="list-item">
+                    <div class="item-info">
+                        <span class="title">Static IP</span>
+                        <span class="subtitle">Use in developer portal</span>
+                    </div>
+                    <span style="color:var(--accent); font-weight:700;">3.6.231.207</span>
                 </div>
-                <div class="input-group">
-                    <label>Redirect URL</label>
-                    <input type="text" id="callback-url-display" readonly style="color:var(--success);">
+                <div class="list-item">
+                    <div class="item-info">
+                        <span class="title">Redirect URL</span>
+                        <span id="callback-url-display" class="subtitle">...</span>
+                    </div>
                 </div>
             </div>
             
-            <button id="logout-btn" class="primary-btn" style="background:var(--danger); margin-top:20px;">LOGOUT</button>
+            <button id="logout-btn" class="m3-btn" style="background-color:transparent; color:var(--danger); border:1px solid var(--danger);">Logout</button>
         </main>
 
-        <!-- View: Admin -->
-        <main id="view-admin" class="view-container admin-only">
-            <div class="card">
-                <div class="card-title">User Management</div>
-                <div id="admin-user-list">
-                    <!-- Dynamic -->
-                </div>
+        <!-- Admin View -->
+        <main id="view-admin" class="view admin-only">
+            <div class="m3-card">
+                <div class="m3-card-title">User Management</div>
+                <div id="admin-user-list"></div>
             </div>
         </main>
-
-        <!-- Bottom Navigation -->
-        <nav class="bottom-nav">
-            <div class="nav-item active" data-view="home">
-                <span class="nav-icon">🏠</span>
-                <span>Home</span>
-            </div>
-            <div class="nav-item" data-view="signals">
-                <span class="nav-icon">📈</span>
-                <span>Signals</span>
-            </div>
-            <div class="nav-item" data-view="config">
-                <span class="nav-icon">⚙️</span>
-                <span>Settings</span>
-            </div>
-            <div class="nav-item admin-only" data-view="admin">
-                <span class="nav-icon">🛡️</span>
-                <span>Admin</span>
-            </div>
-        </nav>
     </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <div class="nav-dest active" data-view="home">
+            <div class="nav-icon-container">🏠</div>
+            <span>Home</span>
+        </div>
+        <div class="nav-dest" data-view="signals">
+            <div class="nav-icon-container">📈</div>
+            <span>Signals</span>
+        </div>
+        <div class="nav-dest" data-view="config">
+            <div class="nav-icon-container">⚙️</div>
+            <span>Settings</span>
+        </div>
+        <div class="nav-dest admin-only" data-view="admin">
+            <div class="nav-icon-container">🛡️</div>
+            <span>Admin</span>
+        </div>
+    </nav>
 
     <!-- Scripts -->
     <script src="js/totp.js"></script>

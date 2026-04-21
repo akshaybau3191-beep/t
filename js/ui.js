@@ -1,37 +1,54 @@
 /**
- * Elite Trader UI Controller - Pro Mobile App Experience
+ * Elite Trader UI Controller - Material Design 3 (Android)
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // State
     let currentUser = null;
 
-    // View Management
-    const views = document.querySelectorAll('.view-container');
-    const navItems = document.querySelectorAll('.nav-item');
+    // Check session on load
+    const checkSession = async () => {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.success) {
+            authOverlay.classList.remove('active');
+            currentUser = data;
+            initUI();
+        }
+    };
 
-    function switchView(viewId) {
+    // --- NAVIGATION ---
+    const navDests = document.querySelectorAll('.nav-dest');
+    const views = document.querySelectorAll('.view');
+
+    function navigate(viewId) {
         views.forEach(v => v.classList.remove('active'));
-        navItems.forEach(n => n.classList.remove('active'));
+        navDests.forEach(n => n.classList.remove('active'));
         
-        document.getElementById(`view-${viewId}`).classList.add('active');
-        document.querySelector(`[data-view="${viewId}"]`).classList.add('active');
+        const targetView = document.getElementById(`view-${viewId}`);
+        const targetNav = document.querySelector(`[data-view="${viewId}"]`);
+        
+        if (targetView && targetNav) {
+            targetView.classList.add('active');
+            targetNav.classList.add('active');
+        }
     }
 
-    navItems.forEach(item => {
-        item.onclick = () => switchView(item.dataset.view);
+    navDests.forEach(dest => {
+        dest.onclick = () => navigate(dest.dataset.view);
     });
 
-    // Auth
+    // --- AUTH ---
     const authOverlay = document.getElementById('auth-overlay');
     const authStatus = document.getElementById('auth-status');
 
-    document.getElementById('show-register').onclick = () => {
+    document.getElementById('show-register').onclick = (e) => {
+        e.preventDefault();
         document.getElementById('login-form').style.display = 'none';
         document.getElementById('register-form').style.display = 'block';
     };
 
-    document.getElementById('show-login').onclick = () => {
+    document.getElementById('show-login').onclick = (e) => {
+        e.preventDefault();
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('register-form').style.display = 'none';
     };
@@ -53,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             initUI();
         } else {
             authStatus.textContent = data.message;
-            authStatus.style.color = 'var(--danger)';
+            authStatus.className = 'danger';
         }
     };
 
@@ -67,26 +84,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         const data = await res.json();
         if (data.success) {
-            alert("Success! Please Login.");
+            alert("Account created! Please sign in.");
             document.getElementById('show-login').click();
         } else {
             alert(data.message);
         }
     };
 
+    // --- INITIALIZATION ---
     function initUI() {
         if (currentUser.role === 'admin') {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
         }
         
-        // Initial data load
         updateStats();
         updateScanner();
-        
-        // Settings load
         loadConfig();
 
-        // Polling
         setInterval(() => {
             updateStats();
             updateScanner();
@@ -101,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('client-code').value = config.client_code || '';
             document.getElementById('trading-pass').value = config.password || '';
             document.getElementById('totp-secret').value = config.totp_secret || '';
-            document.getElementById('callback-url-display').value = config.callback_url || '';
+            document.getElementById('callback-url-display').textContent = config.callback_url || '';
         }
     }
 
@@ -117,50 +131,54 @@ document.addEventListener('DOMContentLoaded', async () => {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(config)
         });
-        if ((await res.json()).success) alert("Settings Saved!");
+        if ((await res.json()).success) alert("Configuration updated.");
     };
 
     async function updateStats() {
-        const res = await fetch('/api/user/stats');
-        const stats = await res.json();
-        
-        const pnlEl = document.getElementById('display-pnl');
-        pnlEl.textContent = `₹${stats.daily_pnl.toFixed(2)}`;
-        pnlEl.className = `stat-value ${stats.daily_pnl >= 0 ? 'success' : 'danger'}`;
+        try {
+            const res = await fetch('/api/user/stats');
+            const stats = await res.json();
+            
+            const pnlEl = document.getElementById('display-pnl');
+            pnlEl.textContent = `₹${stats.daily_pnl.toFixed(2)}`;
+            pnlEl.className = `stat-value ${stats.daily_pnl >= 0 ? 'success' : 'danger'}`;
 
-        document.getElementById('total-profit').textContent = `₹${stats.total_real_profit.toFixed(2)}`;
-        
-        const dot = document.getElementById('engine-status-dot');
-        const statusText = document.getElementById('engine-status');
-        if (stats.is_market_open) {
-            dot.classList.add('online');
-            statusText.textContent = 'ONLINE';
-        } else {
-            dot.classList.remove('online');
-            statusText.textContent = 'CLOSED';
-        }
+            document.getElementById('total-profit').textContent = `₹${stats.total_real_profit.toFixed(2)}`;
+            document.getElementById('total-profit').className = `stat-value ${stats.total_real_profit >= 0 ? 'success' : 'danger'}`;
+            
+            const dot = document.getElementById('engine-status-dot');
+            const statusText = document.getElementById('engine-status');
+            if (stats.is_market_open) {
+                dot.classList.add('online');
+                statusText.textContent = 'Active';
+            } else {
+                dot.classList.remove('online');
+                statusText.textContent = 'Closed';
+            }
 
-        // Positions
-        const posRes = await fetch('/api/user/positions');
-        const positions = await posRes.json();
-        const container = document.getElementById('active-trade-container');
-        if (positions.length === 0) {
-            container.innerHTML = '<p style="font-size:12px; color:var(--text-secondary); text-align:center;">No active trades</p>';
-        } else {
-            container.innerHTML = '';
-            positions.forEach(p => {
-                const div = document.createElement('div');
-                div.className = 'index-card';
-                div.innerHTML = `
-                    <div class="index-info">
-                        <span class="name">${p.symbol}</span>
-                        <span class="status">Qty: ${p.qty} | Avg: ${p.avg_price.toFixed(2)}</span>
-                    </div>
-                    <span class="pnl-badge ${p.realized + p.unrealized >= 0 ? 'success' : 'danger'}">₹${(p.realized + p.unrealized).toFixed(2)}</span>
-                `;
-                container.appendChild(div);
-            });
-        }
+            // Positions
+            const posRes = await fetch('/api/user/positions');
+            const positions = await posRes.json();
+            const container = document.getElementById('active-trade-container');
+            if (positions.length === 0) {
+                container.innerHTML = '<p style="text-align:center; padding:20px; font-size:14px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>';
+            } else {
+                container.innerHTML = '';
+                positions.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'list-item';
+                    const totalPnl = p.realized + p.unrealized;
+                    div.innerHTML = `
+                        <div class="item-info">
+                            <span class="title">${p.symbol}</span>
+                            <span class="subtitle">Qty: ${p.qty} | Avg: ${p.avg_price.toFixed(2)}</span>
+                        </div>
+                        <span class="stat-value ${totalPnl >= 0 ? 'success' : 'danger'}" style="font-size:16px;">₹${totalPnl.toFixed(2)}</span>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        } catch (e) { console.error(e); }
     }
 
     async function updateScanner() {
@@ -169,17 +187,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.innerHTML = '';
         indices.forEach(name => {
             const div = document.createElement('div');
-            div.className = 'index-card';
+            div.className = 'list-item';
             div.innerHTML = `
-                <div class="index-info">
-                    <span class="name">${name}</span>
-                    <span class="status">AI MONITORING...</span>
+                <div class="item-info">
+                    <span class="title">${name}</span>
+                    <span class="subtitle">Monitoring market signals...</span>
                 </div>
-                <div style="font-weight:800; color:var(--accent);">84</div>
+                <span style="font-weight:700; color:var(--accent);">84%</span>
             `;
             container.appendChild(div);
         });
     }
 
-    document.getElementById('logout-btn').onclick = () => location.reload();
+    document.getElementById('logout-btn').onclick = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' }); // I'll add this endpoint in run.py
+        window.location.reload();
+    };
+
+    // Auto-Login Check on Load
+    const checkSession = async () => {
+        try {
+            const res = await fetch('/api/auth/me');
+            const data = await res.json();
+            if (data.success) {
+                authOverlay.classList.remove('active');
+                currentUser = data;
+                initUI();
+            }
+        } catch (e) {
+            console.warn("Session check failed", e);
+        }
+    };
+    checkSession();
 });
