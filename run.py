@@ -126,7 +126,7 @@ def user_config():
     
     callback_url = f"{request.host_url.rstrip('/')}/api/angel/callback/{user.username}"
     postback_url = f"{request.host_url.rstrip('/')}/api/angel/postback/{user.username}"
-    static_ip = "103.212.120.45"
+    static_ip = "3.6.231.207"
 
     if not user.config:
         return jsonify({
