@@ -57,3 +57,12 @@ class DailyStats(db.Model):
     total_pnl = db.Column(db.Float, default=0.0)
     trades_count = db.Column(db.Integer, default=0)
     win_rate = db.Column(db.Float, default=0.0)
+
+class SubscriptionRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    upi_ref = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, default=399.0)
+    status = db.Column(db.String(20), default='PENDING') # PENDING, APPROVED, REJECTED
+    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
+    username = db.Column(db.String(50)) # For easy display

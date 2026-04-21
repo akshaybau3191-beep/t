@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Elite Trader | Android Native</title>
+    <title>Elite Trader | Premium Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -65,6 +65,8 @@
             </div>
 
             <div class="m3-card">
+                <div class="m3-card-title">Portfolio Summary</div>
+                <div class="stats-row">
                     <div class="stat-item">
                         <div class="stat-label">Daily P&L</div>
                         <div id="display-pnl" class="stat-value">₹0.00</div>
@@ -77,9 +79,9 @@
             </div>
 
             <div class="m3-card">
-                <div class="m3-card-title">Active Trades</div>
+                <div class="m3-card-title">Active Positions</div>
                 <div id="active-trade-container">
-                    <p style="text-align:center; padding:20px; font-size:14px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>
+                    <p style="text-align:center; padding:10px; font-size:12px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>
                 </div>
             </div>
         </main>
@@ -99,6 +101,41 @@
                     <!-- Dynamic -->
                 </div>
             </div>
+        </main>
+
+        <!-- Profile View -->
+        <main id="view-profile" class="view">
+            <div class="m3-card">
+                <div class="m3-card-title">Subscription Status</div>
+                <div class="list-item">
+                    <div class="item-info">
+                        <span class="title" id="profile-sub-status">Inactive</span>
+                        <span class="subtitle" id="profile-expiry">Expires: N/A</span>
+                    </div>
+                    <span id="profile-days-left" style="font-weight:700; color:var(--accent);">0 Days</span>
+                </div>
+            </div>
+
+            <div class="m3-card">
+                <div class="m3-card-title">Upgrade Subscription</div>
+                <p style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-bottom:15px;">
+                    Pay <b>Rs.399/-</b> for 1 Month access to premium AI signals and automated trading.
+                </p>
+                <div class="list-item">
+                    <div class="item-info">
+                        <span class="title">8975753191@upi</span>
+                        <span class="subtitle">Click to copy UPI ID</span>
+                    </div>
+                    <button class="icon-btn" onclick="copyText('8975753191@upi')">📋</button>
+                </div>
+                <div class="m3-input-group" style="margin-top:20px;">
+                    <label>UPI Reference Number (12 Digits)</label>
+                    <input type="text" id="upi-ref-input" class="m3-input" placeholder="Enter Ref Number">
+                </div>
+                <button id="submit-sub-btn" class="m3-btn">SUBMIT PAYMENT PROOF</button>
+            </div>
+
+            <button id="logout-btn" class="m3-btn" style="background-color:transparent; color:var(--danger); border:1px solid var(--danger);">Logout</button>
         </main>
 
         <!-- Settings View -->
@@ -148,14 +185,18 @@
                     <button class="icon-btn" onclick="copyElementText('postback-url-display')">📋</button>
                 </div>
             </div>
-            
-            <button id="logout-btn" class="m3-btn" style="background-color:transparent; color:var(--danger); border:1px solid var(--danger);">Logout</button>
         </main>
 
         <!-- Admin View -->
         <main id="view-admin" class="view admin-only">
             <div class="m3-card">
-                <div class="m3-card-title">User Management</div>
+                <div class="m3-card-title">Subscription Requests</div>
+                <div id="admin-sub-requests">
+                    <p style="text-align:center; padding:10px; font-size:12px; color:var(--md-sys-color-on-surface-variant);">No pending requests</p>
+                </div>
+            </div>
+            <div class="m3-card">
+                <div class="m3-card-title">All Users</div>
                 <div id="admin-user-list"></div>
             </div>
         </main>
@@ -170,6 +211,10 @@
         <div class="nav-dest" data-view="trades">
             <div class="nav-icon-container">📉</div>
             <span>Trades</span>
+        </div>
+        <div class="nav-dest" data-view="profile">
+            <div class="nav-icon-container">👤</div>
+            <span>Profile</span>
         </div>
         <div class="nav-dest" data-view="config">
             <div class="nav-icon-container">⚙️</div>

@@ -290,6 +290,53 @@ def toggle_user():
         return jsonify({'success': True})
     return jsonify({'success': False})
 
+@app.route('/api/subscription/request', methods=['POST'])
+@login_required
+def submit_sub_request():
+    from backend.models import SubscriptionRequest
+    data = request.json
+    user = db.session.get(User, session['user_id'])
+    
+    new_req = SubscriptionRequest(
+        user_id=user.id,
+        username=user.username,
+        upi_ref=data.get('upi_ref'),
+        status='PENDING'
+    )
+    db.session.add(new_req)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Request submitted! Admin will verify.'})
+
+@app.route('/api/admin/sub_requests', methods=['GET'])
+@admin_required
+def get_sub_requests():
+    from backend.models import SubscriptionRequest
+    reqs = db.session.query(SubscriptionRequest).filter_by(status='PENDING').all()
+    output = []
+    for r in reqs:
+        output.append({
+            'id': r.id,
+            'username': r.username,
+            'upi_ref': r.upi_ref,
+            'time': r.timestamp.strftime('%Y-%m-%d %H:%M')
+        })
+    return jsonify(output)
+
+@app.route('/api/admin/approve_sub', methods=['POST'])
+@admin_required
+def approve_sub():
+    from backend.models import SubscriptionRequest
+    data = request.json
+    req = db.session.get(SubscriptionRequest, data['id'])
+    if req:
+        req.status = 'APPROVED'
+        user = db.session.get(User, req.user_id)
+        user.is_active = True
+        user.expiry_date = datetime.now(timezone.utc) + timedelta(days=30)
+        db.session.commit()
+        return jsonify({'success': True})
+    return jsonify({'success': False})
+
 @app.route('/api/shutdown', methods=['POST'])
 @admin_required
 def shutdown():
