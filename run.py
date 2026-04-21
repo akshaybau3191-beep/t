@@ -2,6 +2,10 @@ import os
 import sys
 import threading
 from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # --- VENDORIZED DEPENDENCIES ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,6 +16,7 @@ if os.path.exists(MODULES_DIR):
 
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
+import fcntl
 
 # Import from our modularized backend
 from backend.models import db, User, AngelConfig
@@ -19,22 +24,46 @@ from backend.engine import PythonTradingEngine, login_angel_one, user_sessions, 
 from backend.auth import login_required, admin_required
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'elite-trading-secret'
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default-unsafe-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "trading.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize DB with App
 db.init_app(app)
 
+def init_db():
+    """Initialize database and create default admin if needed."""
+    with app.app_context():
+        db.create_all()
+        if not db.session.query(User).filter_by(username='admin').first():
+            admin_pass = os.getenv('ADMIN_PASSWORD', 'admin123')
+            admin = User(username='admin', password_hash=generate_password_hash(admin_pass), role='admin', is_active=True)
+            db.session.add(admin)
+            db.session.commit()
+            print("[*] Database initialized and admin user created.")
+
+def start_scanner_locked():
+    """Start the scanner thread with a file lock to ensure only one instance runs across Gunicorn workers."""
+    lock_file_path = os.path.join(BASE_DIR, "scanner.lock")
+    try:
+        # We need a persistent file object for the lock to remain active
+        app.scanner_lock_file = open(lock_file_path, 'w')
+        fcntl.flock(app.scanner_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        
+        engine = PythonTradingEngine(app)
+        thread = threading.Thread(target=engine.run_scanner, daemon=True)
+        thread.start()
+        print("[*] Scanner thread started successfully with lock.")
+    except (IOError, OSError):
+        print("[*] Scanner already running in another worker (lock acquired by other process).")
+
+# Run initialization on every import/worker start
+init_db()
+start_scanner_locked()
+
 # --- ROUTES ---
 
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('.', path)
+# Moved catch-all routes to bottom
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
@@ -217,15 +246,16 @@ def toggle_user():
 def shutdown():
     os._exit(0)
 
+# Catch-all routes at the bottom
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('.', path)
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        if not db.session.query(User).filter_by(username='admin').first():
-            admin = User(username='admin', password_hash=generate_password_hash('admin123'), role='admin', is_active=True)
-            db.session.add(admin)
-            db.session.commit()
-    
-    engine = PythonTradingEngine(app)
-    threading.Thread(target=engine.run_scanner, daemon=True).start()
-    
+    # When running directly (development), use the Flask dev server
+    # init_db() and start_scanner_locked() already ran above at module level
     app.run(host='0.0.0.0', port=8000, debug=False)

@@ -3,6 +3,8 @@ Description=Gunicorn instance to serve AI Trading Bot
 After=network.target
 
 [Service]
+# IMPORTANT: Ensure /home/ubuntu/Ai-Bot-Trader is owned by ubuntu:www-data
+# Run: sudo chown -R ubuntu:www-data /home/ubuntu/Ai-Bot-Trader
 User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/Ai-Bot-Trader
