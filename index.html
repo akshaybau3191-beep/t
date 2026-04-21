@@ -132,6 +132,10 @@
                     <label>UPI Reference Number (12 Digits)</label>
                     <input type="text" id="upi-ref-input" class="m3-input" placeholder="Enter Ref Number">
                 </div>
+                <div class="m3-input-group">
+                    <label>Attach Payment Screenshot</label>
+                    <input type="file" id="proof-image-input" class="m3-input" accept="image/*" style="padding: 10px;">
+                </div>
                 <button id="submit-sub-btn" class="m3-btn">SUBMIT PAYMENT PROOF</button>
             </div>
 
@@ -163,24 +167,24 @@
 
             <div class="m3-card">
                 <div class="m3-card-title">System Configuration</div>
-                <div class="list-item">
-                    <div class="item-info">
+                <div class="list-item" style="align-items: flex-start;">
+                    <div class="item-info" style="max-width: calc(100% - 50px);">
                         <span class="title">Static IP</span>
-                        <span class="subtitle">3.6.231.207</span>
+                        <span class="subtitle" style="word-break: break-all;">3.6.231.207</span>
                     </div>
                     <button class="icon-btn" onclick="copyText('3.6.231.207')">📋</button>
                 </div>
-                <div class="list-item">
-                    <div class="item-info">
+                <div class="list-item" style="align-items: flex-start;">
+                    <div class="item-info" style="max-width: calc(100% - 50px);">
                         <span class="title">Redirect URL</span>
-                        <span id="callback-url-display" class="subtitle">...</span>
+                        <span id="callback-url-display" class="subtitle" style="word-break: break-all;">...</span>
                     </div>
                     <button class="icon-btn" onclick="copyElementText('callback-url-display')">📋</button>
                 </div>
-                <div class="list-item">
-                    <div class="item-info">
+                <div class="list-item" style="align-items: flex-start;">
+                    <div class="item-info" style="max-width: calc(100% - 50px);">
                         <span class="title">Postback URL</span>
-                        <span id="postback-url-display" class="subtitle">...</span>
+                        <span id="postback-url-display" class="subtitle" style="word-break: break-all;">...</span>
                     </div>
                     <button class="icon-btn" onclick="copyElementText('postback-url-display')">📋</button>
                 </div>

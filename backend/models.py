@@ -62,7 +62,8 @@ class SubscriptionRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     upi_ref = db.Column(db.String(100), nullable=False)
+    proof_image = db.Column(db.String(200)) # Path to uploaded screenshot
     amount = db.Column(db.Float, default=399.0)
     status = db.Column(db.String(20), default='PENDING') # PENDING, APPROVED, REJECTED
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
-    username = db.Column(db.String(50)) # For easy display
+    username = db.Column(db.String(50))

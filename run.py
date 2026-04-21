@@ -27,6 +27,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default-unsafe-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "trading.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Added: Upload folder for payment proofs
+app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # Added: Database Timeout for Concurrent Scanner Threads
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {"connect_args": {"timeout": 30}}
 # Added: Persistent Session Management
@@ -294,18 +297,27 @@ def toggle_user():
 @login_required
 def submit_sub_request():
     from backend.models import SubscriptionRequest
-    data = request.json
+    from werkzeug.utils import secure_filename
+    
+    upi_ref = request.form.get('upi_ref')
+    proof_file = request.files.get('proof')
     user = db.session.get(User, session['user_id'])
+    
+    filename = None
+    if proof_file:
+        filename = secure_filename(f"{user.username}_{int(time.time())}_{proof_file.filename}")
+        proof_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     
     new_req = SubscriptionRequest(
         user_id=user.id,
         username=user.username,
-        upi_ref=data.get('upi_ref'),
+        upi_ref=upi_ref,
+        proof_image=filename,
         status='PENDING'
     )
     db.session.add(new_req)
     db.session.commit()
-    return jsonify({'success': True, 'message': 'Request submitted! Admin will verify.'})
+    return jsonify({'success': True, 'message': 'Request submitted with proof! Admin will verify.'})
 
 @app.route('/api/admin/sub_requests', methods=['GET'])
 @admin_required
@@ -318,9 +330,14 @@ def get_sub_requests():
             'id': r.id,
             'username': r.username,
             'upi_ref': r.upi_ref,
+            'proof_url': f'/uploads/{r.proof_image}' if r.proof_image else None,
             'time': r.timestamp.strftime('%Y-%m-%d %H:%M')
         })
     return jsonify(output)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/api/admin/approve_sub', methods=['POST'])
 @admin_required

@@ -167,20 +167,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('submit-sub-btn').onclick = async () => {
         const upiRef = document.getElementById('upi-ref-input').value;
+        const proofFile = document.getElementById('proof-image-input').files[0];
+        
         if (upiRef.length < 10) {
             alert("Please enter a valid 12-digit UPI Reference Number.");
             return;
         }
         
+        if (!proofFile) {
+            alert("Please attach a screenshot of your payment proof.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('upi_ref', upiRef);
+        formData.append('proof', proofFile);
+        
         const res = await fetch('/api/subscription/request', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ upi_ref: upiRef })
+            body: formData
         });
         const data = await res.json();
         if (data.success) {
             alert(data.message);
             document.getElementById('upi-ref-input').value = '';
+            document.getElementById('proof-image-input').value = '';
         }
     };
 
@@ -232,6 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="item-info">
                     <span class="title">${r.username}</span>
                     <span class="subtitle">Ref: ${r.upi_ref} | ${r.time}</span>
+                    ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="color:var(--accent); font-size:11px; text-decoration:none; font-weight:700;">VIEW PROOF ↗</a>` : ''}
                 </div>
                 <button class="m3-btn" style="width:auto; padding:8px 16px; margin:0;" onclick="approveSub(${r.id})">APPROVE</button>
             `;
@@ -262,15 +274,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- GLOBAL HELPERS ---
     window.copyText = (text) => {
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Copied: " + text);
-        }).catch(err => {
-            console.error('Could not copy text: ', err);
-        });
+        // More robust copy for mobile
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        alert("Copied: " + text);
     };
 
     window.copyElementText = (id) => {
-        const text = document.getElementById(id).textContent;
+        const text = document.getElementById(id).innerText;
         window.copyText(text);
     };
 
