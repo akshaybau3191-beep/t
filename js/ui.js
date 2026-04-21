@@ -215,24 +215,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderUserList(users) {
-        const container = document.getElementById('admin-user-list');
-        container.innerHTML = '';
+        const tbody = document.getElementById('admin-user-table-body');
+        tbody.innerHTML = '';
         users.forEach(u => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.innerHTML = `
-                <div class="item-info">
-                    <span class="title">${u.username}</span>
-                    <span class="subtitle">Exp: ${u.expiry} | Role: ${u.role}</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <label class="switch">
-                        <input type="checkbox" ${u.is_active ? 'checked' : ''} onclick="toggleUser(${u.id})">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${u.username}</b></td>
+                <td>${u.expiry}</td>
+                <td>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <span class="mode-badge ${u.is_active ? 'badge-paper' : 'badge-live'}">${u.is_active ? 'Active' : 'Exp'}</span>
+                        <label class="switch">
+                            <input type="checkbox" ${u.is_active ? 'checked' : ''} onclick="toggleUser(${u.id})">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </td>
             `;
-            container.appendChild(div);
+            tbody.appendChild(tr);
         });
     }
 
@@ -248,26 +248,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadAdminRequests() {
         const res = await fetch('/api/admin/sub_requests');
         const reqs = await res.json();
-        const container = document.getElementById('admin-sub-requests');
+        const tbody = document.getElementById('admin-sub-requests-table');
         
         if (reqs.length === 0) {
-            container.innerHTML = '<p style="text-align:center; padding:10px; font-size:12px; color:var(--md-sys-color-on-surface-variant);">No pending requests</p>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">No pending requests</td></tr>';
             return;
         }
         
-        container.innerHTML = '';
+        tbody.innerHTML = '';
         reqs.forEach(r => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.innerHTML = `
-                <div class="item-info">
-                    <span class="title">${r.username}</span>
-                    <span class="subtitle">Ref: ${r.upi_ref} | ${r.time}</span>
-                    ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="color:var(--accent); font-size:11px; text-decoration:none; font-weight:700;">VIEW PROOF ↗</a>` : ''}
-                </div>
-                <button class="m3-btn" style="width:auto; padding:8px 16px; margin:0;" onclick="approveSub(${r.id})">APPROVE</button>
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${r.username}</b></td>
+                <td style="font-size:11px;">${r.upi_ref}</td>
+                <td>
+                    ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="color:var(--accent); font-weight:700; text-decoration:none;">VIEW ↗</a>` : '-'}
+                </td>
+                <td>
+                    <button class="m3-btn" style="width:auto; padding:6px 12px; margin:0; font-size:11px;" onclick="approveSub(${r.id})">APPROVE</button>
+                </td>
             `;
-            container.appendChild(div);
+            tbody.appendChild(tr);
         });
     }
 
