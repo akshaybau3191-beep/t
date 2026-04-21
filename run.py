@@ -50,9 +50,9 @@ def init_db():
 
 def start_scanner_locked():
     """Start the scanner thread with a file lock to ensure only one instance runs across Gunicorn workers."""
-    lock_file_path = os.path.join(BASE_DIR, "scanner.lock")
+    # Use /tmp for the lock file to avoid permission issues in the project directory
+    lock_file_path = "/tmp/trading_bot_scanner.lock"
     try:
-        # We need a persistent file object for the lock to remain active
         app.scanner_lock_file = open(lock_file_path, 'w')
         fcntl.flock(app.scanner_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         
@@ -61,7 +61,8 @@ def start_scanner_locked():
         thread.start()
         print("[*] Scanner thread started successfully with lock.")
     except (IOError, OSError):
-        print("[*] Scanner already running in another worker (lock acquired by other process).")
+        # This is normal for workers that are not the first one
+        pass
 
 # Run initialization on every import/worker start
 init_db()
