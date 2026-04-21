@@ -149,10 +149,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- SUBSCRIPTION LOGIC ---
-    function updateProfile() {
+    async function updateProfile() {
         const statusEl = document.getElementById('profile-sub-status');
         const expiryEl = document.getElementById('profile-expiry');
         const daysEl = document.getElementById('profile-days-left');
+        const badgeContainer = document.getElementById('sub-request-status-badge');
 
         statusEl.textContent = currentUser.is_active ? 'Active Plan' : 'Inactive';
         statusEl.className = `title ${currentUser.is_active ? 'success' : 'danger'}`;
@@ -164,6 +165,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
             daysEl.textContent = `${diff > 0 ? diff : 0} Days Left`;
         }
+
+        // Fetch My Request Status
+        try {
+            const res = await fetch('/api/subscription/my_request');
+            const data = await res.json();
+            badgeContainer.innerHTML = '';
+            
+            if (data.success) {
+                const reqTime = new Date(data.time);
+                const now = new Date();
+                const hoursSinceReq = (now - reqTime) / (1000 * 60 * 60);
+
+                if (data.status === 'PENDING') {
+                    badgeContainer.innerHTML = `<div class="mode-badge badge-live" style="width:100%; text-align:center; padding:10px; margin-bottom:15px; border-radius:12px; font-size:12px;">⌛ REQUEST UNDER APPROVAL</div>`;
+                } else if (data.status === 'APPROVED' && hoursSinceReq < 24) {
+                    badgeContainer.innerHTML = `<div class="mode-badge badge-paper" style="width:100%; text-align:center; padding:10px; margin-bottom:15px; border-radius:12px; font-size:12px;">✅ REQUEST APPROVED! PROCEED TO TRADE</div>`;
+                }
+            }
+        } catch (e) { console.warn(e); }
     }
 
     document.getElementById('submit-sub-btn').onclick = async () => {

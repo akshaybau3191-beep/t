@@ -320,6 +320,22 @@ def submit_sub_request():
     db.session.commit()
     return jsonify({'success': True, 'message': 'Request submitted with proof! Admin will verify.'})
 
+@app.route('/api/subscription/my_request', methods=['GET'])
+@login_required
+def get_my_sub_request():
+    from backend.models import SubscriptionRequest
+    user = db.session.get(User, session['user_id'])
+    req = db.session.query(SubscriptionRequest).filter_by(user_id=user.id).order_by(SubscriptionRequest.timestamp.desc()).first()
+    
+    if not req:
+        return jsonify({'success': False})
+    
+    return jsonify({
+        'success': True,
+        'status': req.status,
+        'time': req.timestamp.isoformat()
+    })
+
 @app.route('/api/admin/sub_requests', methods=['GET'])
 @admin_required
 def get_sub_requests():
