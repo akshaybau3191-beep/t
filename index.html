@@ -52,8 +52,19 @@
         <!-- Dashboard View -->
         <main id="view-home" class="view active">
             <div class="m3-card">
-                <div class="m3-card-title">Portfolio Summary</div>
-                <div class="stats-row">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div class="m3-card-title" style="margin-bottom: 0;">Trading Mode</div>
+                    <label class="switch">
+                        <input type="checkbox" id="mode-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div style="text-align: right; font-size: 10px; color: var(--md-sys-color-on-surface-variant); margin-top: -15px;">
+                    <span id="mode-label">PAPER TRADING</span>
+                </div>
+            </div>
+
+            <div class="m3-card">
                     <div class="stat-item">
                         <div class="stat-label">Daily P&L</div>
                         <div id="display-pnl" class="stat-value">₹0.00</div>
@@ -107,19 +118,27 @@
             </div>
 
             <div class="m3-card">
-                <div class="m3-card-title">System Info</div>
+                <div class="m3-card-title">System Configuration</div>
                 <div class="list-item">
                     <div class="item-info">
                         <span class="title">Static IP</span>
-                        <span class="subtitle">Use in developer portal</span>
+                        <span class="subtitle">3.6.231.207</span>
                     </div>
-                    <span style="color:var(--accent); font-weight:700;">3.6.231.207</span>
+                    <button class="icon-btn" onclick="copyText('3.6.231.207')">📋</button>
                 </div>
                 <div class="list-item">
                     <div class="item-info">
                         <span class="title">Redirect URL</span>
                         <span id="callback-url-display" class="subtitle">...</span>
                     </div>
+                    <button class="icon-btn" onclick="copyElementText('callback-url-display')">📋</button>
+                </div>
+                <div class="list-item">
+                    <div class="item-info">
+                        <span class="title">Postback URL</span>
+                        <span id="postback-url-display" class="subtitle">...</span>
+                    </div>
+                    <button class="icon-btn" onclick="copyElementText('postback-url-display')">📋</button>
                 </div>
             </div>
             
