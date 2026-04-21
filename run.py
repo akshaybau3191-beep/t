@@ -169,7 +169,25 @@ def user_config():
         'static_ip': static_ip
     })
 
-@app.route('/api/user/positions', methods=['GET'])
+@app.route('/api/user/history', methods=['GET'])
+@login_required
+def get_trade_history():
+    from backend.models import Trade
+    user = db.session.get(User, session['user_id'])
+    trades = db.session.query(Trade).filter_by(user_id=user.id).order_by(Trade.timestamp.desc()).limit(50).all()
+    
+    history = []
+    for t in trades:
+        history.append({
+            'symbol': t.symbol,
+            'type': t.transaction_type,
+            'qty': t.quantity,
+            'price': t.price,
+            'status': t.status,
+            'mode': t.mode,
+            'time': t.timestamp.strftime('%H:%M:%S')
+        })
+    return jsonify(history)
 @login_required
 def user_positions():
     from backend.models import Position

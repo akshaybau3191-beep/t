@@ -87,12 +87,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         updateStats();
-        updateScanner();
+        updateTrades();
         loadConfig();
 
         setInterval(() => {
             updateStats();
-            updateScanner();
+            updateTrades();
         }, 5000);
     }
 
@@ -167,47 +167,81 @@ document.addEventListener('DOMContentLoaded', async () => {
                 statusText.textContent = 'Closed';
             }
 
-            // Positions
+            // Sync Home "Active Positions" simplified view
             const posRes = await fetch('/api/user/positions');
             const positions = await posRes.json();
-            const container = document.getElementById('active-trade-container');
+            const homeContainer = document.getElementById('active-trade-container');
+            homeContainer.innerHTML = '';
             if (positions.length === 0) {
-                container.innerHTML = '<p style="text-align:center; padding:20px; font-size:14px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>';
+                homeContainer.innerHTML = '<p style="text-align:center; padding:10px; font-size:12px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>';
             } else {
-                container.innerHTML = '';
                 positions.forEach(p => {
                     const div = document.createElement('div');
                     div.className = 'list-item';
-                    const totalPnl = p.realized + p.unrealized;
+                    div.style.padding = '8px 0';
                     div.innerHTML = `
                         <div class="item-info">
-                            <span class="title">${p.symbol}</span>
-                            <span class="subtitle">Qty: ${p.qty} | Avg: ${p.avg_price.toFixed(2)}</span>
+                            <span class="title" style="font-size:14px;">${p.symbol}</span>
                         </div>
-                        <span class="stat-value ${totalPnl >= 0 ? 'success' : 'danger'}" style="font-size:16px;">₹${totalPnl.toFixed(2)}</span>
+                        <span class="stat-value ${p.realized + p.unrealized >= 0 ? 'success' : 'danger'}" style="font-size:14px;">₹${(p.realized + p.unrealized).toFixed(2)}</span>
                     `;
-                    container.appendChild(div);
+                    homeContainer.appendChild(div);
                 });
             }
         } catch (e) { console.error(e); }
     }
 
-    async function updateScanner() {
-        const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY'];
-        const container = document.getElementById('indices-list');
-        container.innerHTML = '';
-        indices.forEach(name => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.innerHTML = `
-                <div class="item-info">
-                    <span class="title">${name}</span>
-                    <span class="subtitle">Monitoring market signals...</span>
-                </div>
-                <span style="font-weight:700; color:var(--accent);">84%</span>
-            `;
-            container.appendChild(div);
-        });
+    async function updateTrades() {
+        try {
+            // 1. Update Active Positions in Trades View
+            const posRes = await fetch('/api/user/positions');
+            const positions = await posRes.json();
+            const activeContainer = document.getElementById('trades-active-container');
+            activeContainer.innerHTML = '';
+            
+            if (positions.length === 0) {
+                activeContainer.innerHTML = '<p style="text-align:center; padding:20px; font-size:14px; color:var(--md-sys-color-on-surface-variant);">No active trades</p>';
+            } else {
+                positions.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'list-item';
+                    const totalPnl = p.realized + p.unrealized;
+                    const badgeClass = p.mode === 'LIVE' ? 'badge-live' : 'badge-paper';
+                    div.innerHTML = `
+                        <div class="item-info">
+                            <span class="title">${p.symbol} <span class="mode-badge ${badgeClass}">${p.mode}</span></span>
+                            <span class="subtitle">Qty: ${p.qty} | Avg: ${p.avg_price.toFixed(2)}</span>
+                        </div>
+                        <span class="stat-value ${totalPnl >= 0 ? 'success' : 'danger'}" style="font-size:16px;">₹${totalPnl.toFixed(2)}</span>
+                    `;
+                    activeContainer.appendChild(div);
+                });
+            }
+
+            // 2. Update Trade History
+            const histRes = await fetch('/api/user/history'); // I'll check if this endpoint exists
+            const history = await histRes.json();
+            const historyContainer = document.getElementById('trades-history-container');
+            historyContainer.innerHTML = '';
+            
+            if (history.length === 0) {
+                historyContainer.innerHTML = '<p style="text-align:center; padding:20px; font-size:14px; color:var(--md-sys-color-on-surface-variant);">No trade history</p>';
+            } else {
+                history.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'list-item';
+                    const badgeClass = t.mode === 'LIVE' ? 'badge-live' : 'badge-paper';
+                    div.innerHTML = `
+                        <div class="item-info">
+                            <span class="title">${t.symbol} <span class="mode-badge ${badgeClass}">${t.mode}</span></span>
+                            <span class="subtitle">${t.type} | Qty: ${t.qty} | Price: ${t.price.toFixed(2)}</span>
+                        </div>
+                        <span class="subtitle">${t.time}</span>
+                    `;
+                    historyContainer.appendChild(div);
+                });
+            }
+        } catch (e) { console.error(e); }
     }
 
     document.getElementById('logout-btn').onclick = async () => {

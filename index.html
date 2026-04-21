@@ -84,11 +84,18 @@
             </div>
         </main>
 
-        <!-- Signals View -->
-        <main id="view-signals" class="view">
+        <!-- Trades View -->
+        <main id="view-trades" class="view">
             <div class="m3-card">
-                <div class="m3-card-title">AI Scanner</div>
-                <div id="indices-list">
+                <div class="m3-card-title">Active Positions</div>
+                <div id="trades-active-container">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+
+            <div class="m3-card">
+                <div class="m3-card-title">Trade History</div>
+                <div id="trades-history-container">
                     <!-- Dynamic -->
                 </div>
             </div>
@@ -160,9 +167,9 @@
             <div class="nav-icon-container">🏠</div>
             <span>Home</span>
         </div>
-        <div class="nav-dest" data-view="signals">
-            <div class="nav-icon-container">📈</div>
-            <span>Signals</span>
+        <div class="nav-dest" data-view="trades">
+            <div class="nav-icon-container">📉</div>
+            <span>Trades</span>
         </div>
         <div class="nav-dest" data-view="config">
             <div class="nav-icon-container">⚙️</div>

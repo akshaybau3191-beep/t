@@ -24,8 +24,7 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
     color: var(--md-sys-color-on-surface);
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
@@ -64,9 +63,9 @@ body {
 /* Navigation Views */
 .view-pager {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: visible; /* Fix for scrolling */
     padding: 16px;
-    padding-bottom: 100px; /* Space for the fixed bottom nav */
+    padding-bottom: 120px; /* Extra space for nav */
 }
 
 .view {
@@ -255,8 +254,20 @@ input:checked + .slider:before { transform: translateX(20px); }
 .slider.round:before { border-radius: 50%; }
 
 /* Success/Error */
-.success { color: var(--success); }
-.danger { color: var(--danger); }
+.stat-value { color: var(--accent); }
+.success { color: var(--success) !important; }
+.danger { color: var(--danger) !important; }
+
+/* Badge System */
+.mode-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.badge-live { background: rgba(242, 184, 181, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+.badge-paper { background: rgba(180, 225, 151, 0.2); color: var(--success); border: 1px solid var(--success); }
 
 /* Overlays */
 .scrim {
