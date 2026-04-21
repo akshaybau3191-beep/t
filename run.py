@@ -173,6 +173,15 @@ def user_config():
         'static_ip': static_ip
     })
 
+@app.route('/api/user/refresh_angel', methods=['POST'])
+@login_required
+def refresh_angel_session():
+    user = db.session.get(User, session['user_id'])
+    success = login_angel_one(user, app)
+    if success:
+        return jsonify({'success': True, 'message': 'Portfolio synced with Angel One!'})
+    return jsonify({'success': False, 'message': 'Sync failed. Check credentials.'})
+
 @app.route('/api/user/history', methods=['GET'])
 @login_required
 def get_trade_history():
