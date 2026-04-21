@@ -33,14 +33,20 @@ db.init_app(app)
 
 def init_db():
     """Initialize database and create default admin if needed."""
-    with app.app_context():
-        db.create_all()
-        if not db.session.query(User).filter_by(username='admin').first():
-            admin_pass = os.getenv('ADMIN_PASSWORD', 'admin123')
-            admin = User(username='admin', password_hash=generate_password_hash(admin_pass), role='admin', is_active=True)
-            db.session.add(admin)
-            db.session.commit()
-            print("[*] Database initialized and admin user created.")
+    try:
+        with app.app_context():
+            print(f"[*] Checking/Creating database tables...")
+            db.create_all()
+            if not db.session.query(User).filter_by(username='admin').first():
+                admin_pass = os.getenv('ADMIN_PASSWORD', 'admin123')
+                admin = User(username='admin', password_hash=generate_password_hash(admin_pass), role='admin', is_active=True)
+                db.session.add(admin)
+                db.session.commit()
+                print("[*] Default admin user verified/created.")
+            else:
+                print("[*] Admin user already exists.")
+    except Exception as e:
+        print(f"[!] Database Initialization Error: {e}")
 
 def start_scanner_locked():
     """Start the scanner thread with a file lock to ensure only one instance runs across Gunicorn workers."""
