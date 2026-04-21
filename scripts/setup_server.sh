@@ -9,6 +9,12 @@ if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
 
+# Setup .env if it doesn't exist
+if [ ! -f ".env" ]; then
+    cp .env.example .env
+    echo "[!] Created .env from template. Please edit it with your real keys."
+fi
+
 # Install dependencies
 source venv/bin/activate
 pip install --upgrade pip
