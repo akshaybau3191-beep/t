@@ -50,14 +50,28 @@ def init_db():
             # Simple Migration: Add starting_capital to angel_config if missing
             try:
                 import sqlite3
+                from sqlalchemy import text
                 db_path = os.path.join(BASE_DIR, "trading.db")
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA table_info(angel_config)")
                 columns = [c[1] for c in cursor.fetchall()]
-                if 'starting_capital' not in columns:
-                    print("[*] Migrating database: Adding 'starting_capital' to 'angel_config'...")
-                    cursor.execute("ALTER TABLE angel_config ADD COLUMN starting_capital FLOAT DEFAULT 100000.0")
+                
+                # Simple Migration: Add missing columns to angel_config
+                columns_to_add = [
+                    ('starting_capital', 'FLOAT DEFAULT 100000.0'),
+                    ('max_daily_loss_pct', 'FLOAT DEFAULT 3.0'),
+                    ('risk_per_trade_pct', 'FLOAT DEFAULT 2.0'),
+                    ('min_confidence_score', 'INTEGER DEFAULT 75')
+                ]
+                for col, col_type in columns_to_add:
+                    if col not in columns:
+                        try:
+                            db.session.execute(text(f"ALTER TABLE angel_config ADD COLUMN {col} {col_type}"))
+                            db.session.commit()
+                            print(f"[*] Migrated: Added {col} to angel_config")
+                        except Exception:
+                            db.session.rollback() # Column likely exists
                 
                 cursor.execute("PRAGMA table_info(trade)")
                 trade_columns = [c[1] for c in cursor.fetchall()]
