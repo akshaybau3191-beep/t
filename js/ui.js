@@ -35,14 +35,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const res = await fetch('/api/user/config');
             const config = await res.json();
-            if (config.risk) {
-                document.getElementById('conf-total-capital').value = config.risk.total_capital;
-                document.getElementById('conf-max-loss').value = config.risk.max_daily_loss_pct;
-                document.getElementById('conf-risk-trade').value = config.risk.risk_per_trade_pct;
-            }
-            if (config.strategy) {
-                document.getElementById('conf-min-score').value = config.strategy.min_confidence_score;
-            }
+            
+            document.getElementById('conf-total-capital').value = config.risk?.total_capital || 100000;
+            document.getElementById('conf-max-loss').value = config.risk?.max_daily_loss_pct || 3;
+            document.getElementById('conf-risk-trade').value = config.risk?.risk_per_trade_pct || 2;
+            document.getElementById('conf-min-score').value = config.strategy?.min_confidence_score || 75;
+            
         } catch (e) { console.error("Error loading risk config", e); }
     }
 
@@ -50,13 +48,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (saveRiskBtn) {
         saveRiskBtn.onclick = async () => {
             try {
-                const res = await fetch('/api/user/config');
-                const config = await res.json();
-                
-                config.risk.total_capital = parseFloat(document.getElementById('conf-total-capital').value);
-                config.risk.max_daily_loss_pct = parseFloat(document.getElementById('conf-max-loss').value);
-                config.risk.risk_per_trade_pct = parseFloat(document.getElementById('conf-risk-trade').value);
-                config.strategy.min_confidence_score = parseInt(document.getElementById('conf-min-score').value);
+                const config = {
+                    risk: {
+                        total_capital: parseFloat(document.getElementById('conf-total-capital').value),
+                        max_daily_loss_pct: parseFloat(document.getElementById('conf-max-loss').value),
+                        risk_per_trade_pct: parseFloat(document.getElementById('conf-risk-trade').value)
+                    },
+                    strategy: {
+                        min_confidence_score: parseInt(document.getElementById('conf-min-score').value)
+                    }
+                };
 
                 const saveRes = await fetch('/api/user/config', {
                     method: 'POST',
@@ -66,6 +67,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const result = await saveRes.json();
                 if (result.success) {
                     alert("Risk controls updated successfully!");
+                } else {
+                    alert("Error: " + (result.message || "Unknown error"));
                 }
             } catch (e) { alert("Failed to save risk config"); }
         };

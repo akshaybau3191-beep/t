@@ -79,8 +79,17 @@ def init_db():
                     print("[*] Migrating database: Adding 'strategy_snapshot' to 'trade'...")
                     cursor.execute("ALTER TABLE trade ADD COLUMN strategy_snapshot TEXT")
                 
+                # Ensure every user has an AngelConfig
+                cursor.execute("SELECT id FROM user")
+                users = cursor.fetchall()
+                for (uid,) in users:
+                    cursor.execute("SELECT id FROM angel_config WHERE user_id=?", (uid,))
+                    if not cursor.fetchone():
+                        cursor.execute("INSERT INTO angel_config (user_id, starting_capital, max_daily_loss_pct, risk_per_trade_pct, min_confidence_score, trading_mode) VALUES (?, 100000.0, 3.0, 2.0, 75, 'PAPER')", (uid,))
+                
                 conn.commit()
                 conn.close()
+                print("[*] Database schema and records verified.")
             except Exception as e:
                 print(f"[!] Migration Error: {e}")
 
@@ -489,38 +498,50 @@ def reload_config():
 @login_required
 def get_user_config():
     user = db.session.query(User).get(session['user_id'])
+    # Ensure config exists
     if not user.config:
-        return jsonify({})
+        new_cfg = AngelConfig(user_id=user.id)
+        db.session.add(new_cfg)
+        db.session.commit()
     
     return jsonify({
         'risk': {
-            'total_capital': user.config.starting_capital,
-            'max_daily_loss_pct': user.config.max_daily_loss_pct,
-            'risk_per_trade_pct': user.config.risk_per_trade_pct
+            'total_capital': user.config.starting_capital or 100000.0,
+            'max_daily_loss_pct': user.config.max_daily_loss_pct or 3.0,
+            'risk_per_trade_pct': user.config.risk_per_trade_pct or 2.0
         },
         'strategy': {
-            'min_confidence_score': user.config.min_confidence_score
+            'min_confidence_score': user.config.min_confidence_score or 75
         }
     })
 
 @app.route('/api/user/config', methods=['POST'])
 @login_required
 def update_user_config():
-    user = db.session.query(User).get(session['user_id'])
-    if not user.config:
-        return jsonify({'success': False, 'message': 'No config found'})
-    
-    data = request.json
-    risk = data.get('risk', {})
-    strat = data.get('strategy', {})
-    
-    user.config.starting_capital = risk.get('total_capital', user.config.starting_capital)
-    user.config.max_daily_loss_pct = risk.get('max_daily_loss_pct', user.config.max_daily_loss_pct)
-    user.config.risk_per_trade_pct = risk.get('risk_per_trade_pct', user.config.risk_per_trade_pct)
-    user.config.min_confidence_score = strat.get('min_confidence_score', user.config.min_confidence_score)
-    
-    db.session.commit()
-    return jsonify({'success': True})
+    try:
+        user = db.session.query(User).get(session['user_id'])
+        if not user.config:
+            new_cfg = AngelConfig(user_id=user.id)
+            db.session.add(new_cfg)
+            db.session.commit()
+            user = db.session.query(User).get(session['user_id']) # Refresh
+        
+        data = request.json
+        risk = data.get('risk', {})
+        strat = data.get('strategy', {})
+        
+        # Explicit type conversion and validation
+        user.config.starting_capital = float(risk.get('total_capital') or 100000.0)
+        user.config.max_daily_loss_pct = float(risk.get('max_daily_loss_pct') or 3.0)
+        user.config.risk_per_trade_pct = float(risk.get('risk_per_trade_pct') or 2.0)
+        user.config.min_confidence_score = int(strat.get('min_confidence_score') or 75)
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        print(f"[!] Config Update Error: {e}")
+        return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/api/shutdown', methods=['POST'])
 @admin_required
