@@ -36,6 +36,12 @@ class PythonTradingEngine:
             'FINNIFTY': '99926037',
             'MIDCPNIFTY': '99926017'
         }
+        self.intervals = {
+            'NIFTY': 50,
+            'BANKNIFTY': 100,
+            'FINNIFTY': 50,
+            'MIDCPNIFTY': 25
+        }
         self.weights = {'trend': 30, 'momentum': 20, 'atr': 15, 'volume': 20, 'breakout': 15}
     
     def is_market_open(self):
@@ -78,14 +84,14 @@ class PythonTradingEngine:
     def scan_market(self, smart_api):
         for name, token in self.indices.items():
             try:
-                # 1. Fetch Real LTP
-                exchange = "NSE" if name == "NIFTY" or name == "BANKNIFTY" else "NFO"
-                # For indices, NSE is correct for NIFTY/BANKNIFTY spots
+                # 1. Fetch Real LTP (All indices are in NSE)
+                exchange = "NSE" 
                 ltp_resp = smart_api.ltpData(exchange, name, token)
                 if not ltp_resp.get('status'): continue
                 ltp = float(ltp_resp['data']['ltp'])
 
-                # 2. Fetch Historical Data for Indicators (15min candles for today)
+                # 2. Fetch Historical Data for Indicators
+                # ... (keep existing candle data logic)
                 # This is a simplified indicator calculation
                 to_date = (datetime.now() + timedelta(hours=5, minutes=30)).strftime('%Y-%m-%d %H:%M')
                 from_date = (datetime.now() + timedelta(hours=5, minutes=30) - timedelta(days=2)).strftime('%Y-%m-%d %H:%M')
@@ -119,7 +125,10 @@ class PythonTradingEngine:
                     }
                     
                     if self.score_index(data) >= 75:
-                        self.dispatch_trade(name, data)
+                        # Determine signal: BUY (CE) or SELL (PE)
+                        # Based on trend: if ema21 > ema50 -> CE, else -> PE
+                        signal = 'CE' if data['ema21'] > data['ema50'] else 'PE'
+                        self.dispatch_trade(name, data, signal)
             except Exception as e:
                 print(f"[!] Scanning Error for {name}: {e}")
 
@@ -139,41 +148,65 @@ class PythonTradingEngine:
             for user in active_users:
                 login_angel_one(user, self.app)
 
-    def dispatch_trade(self, index, data):
+    def dispatch_trade(self, index, data, signal):
         with self.app.app_context():
             from backend.models import User
             active_users = db.session.query(User).filter_by(is_active=True).all()
             for user in active_users:
                 if user.is_active and user.last_login_date == date.today():
-                    self.execute_for_user(user, index, data)
+                    self.execute_for_user(user, index, data, signal)
 
-    def execute_for_user(self, user, index, data):
+    def get_option_strike(self, index, ltp, signal):
+        interval = self.intervals.get(index, 50)
+        atm = round(ltp / interval) * interval
+        
+        # User wants ITM, ATM, OTM check. For simplicity, we pick one or evaluate all.
+        # Here we select ATM by default or ITM for better delta.
+        # ITM CE = ATM - interval, ITM PE = ATM + interval
+        itm = atm - interval if signal == 'CE' else atm + interval
+        otm = atm + interval if signal == 'CE' else atm - interval
+        
+        return {
+            'ATM': int(atm),
+            'ITM': int(itm),
+            'OTM': int(otm)
+        }
+
+    def execute_for_user(self, user, index, data, signal):
         if user.id not in user_sessions: return
         from backend.models import db, Position
         
-        # Check if already in a position for this index (Simplified: using index name as token for now or mapping)
-        # In real scenario, we'd check for specific option tokens
-        token = self.indices.get(index)
+        # Calculate strikes
+        strikes = self.get_option_strike(index, data['price'], signal)
+        # Select strike (default to ATM for now, can be optimized)
+        selected_strike = strikes['ATM']
+        
+        # Generate symbolic name for logging/sim (In real, search for token)
+        # NIFTY24APR22500CE
+        expiry_str = "24APR" # Placeholder, in real should be dynamic
+        option_symbol = f"{index}{expiry_str}{selected_strike}{signal}"
+        
+        # In real scenario, search for token
+        # For now, we use a placeholder or the index token for paper
+        token = f"OPT-{index}-{selected_strike}-{signal}" 
+        
         pos = db.session.query(Position).filter_by(user_id=user.id, token=token).first()
         if pos and pos.quantity != 0:
-            return # Already in a position
+            return 
             
         mode = user.config.trading_mode
         if mode == 'LIVE':
-            print(f"[*] LIVE Trade Execution for {user.username} on {index}")
-            # order_params = { ... }
-            # resp = user_sessions[user.id].placeOrder(order_params)
-            # if resp['status']: # record initial pending trade?
+            print(f"[*] LIVE Trade Execution for {user.username} on {option_symbol}")
+            # order_params = { ... exchange: 'NFO', tradingsymbol: option_symbol, ... }
         else:
-            print(f"[*] PAPER Trade Simulation for {user.username} on {index}")
-            # Simulate a postback for paper trading
+            print(f"[*] PAPER Trade Simulation for {user.username} on {option_symbol}")
             mock_trade = {
                 'orderid': f'MOCK-{int(time.time())}',
-                'tradingsymbol': index,
+                'tradingsymbol': option_symbol,
                 'symboltoken': token,
-                'transactiontype': 'BUY', # Default to buy for demo
+                'transactiontype': 'BUY', 
                 'quantity': '50',
-                'price': str(data['price']),
+                'price': '100.0', # Placeholder for option premium
                 'status': 'COMPLETE'
             }
             update_position_from_trade(user.id, mock_trade, self.app, mode=mode)
