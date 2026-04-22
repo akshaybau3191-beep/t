@@ -90,6 +90,7 @@ def start_scanner_locked():
         fcntl.flock(app.scanner_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         
         engine = PythonTradingEngine(app)
+        app.trading_engine = engine # Store on app
         thread = threading.Thread(target=engine.run_scanner, daemon=True)
         thread.start()
         print("[*] Scanner thread started successfully with lock.")
@@ -305,16 +306,21 @@ def user_stats():
     years = days_active / 365.0
     cagr = ((current_value / starting_capital) ** (1 / years) - 1) * 100 if starting_capital > 0 else 0
     
-    # 4. Market Status
+    # 4. Market Status & Current Task
     engine = PythonTradingEngine(app)
     is_open = engine.is_market_open()
+    
+    engine_task = "Starting..."
+    if hasattr(app, 'trading_engine'):
+        engine_task = app.trading_engine.current_task
     
     return jsonify({
         'daily_pnl': daily_pnl,
         'trades': daily_trades,
         'total_real_profit': total_real_profit,
         'cagr': cagr,
-        'is_market_open': is_open
+        'is_market_open': is_open,
+        'engine_task': engine_task
     })
 
 @app.route('/api/angel/postback/<username>', methods=['POST'])

@@ -404,13 +404,18 @@ async function updateStats() {
         
         const dot = document.getElementById('engine-status-dot');
         const statusText = document.getElementById('engine-status');
+        const taskText = document.getElementById('engine-task');
+
         if (stats.is_market_open) {
             dot.classList.add('online');
             statusText.textContent = 'Active';
-
         } else {
             dot.classList.remove('online');
             statusText.textContent = 'Closed';
+        }
+
+        if (taskText) {
+            taskText.textContent = stats.engine_task || 'Idle';
         }
 
         // Sync Home "Active Positions" simplified view

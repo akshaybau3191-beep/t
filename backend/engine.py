@@ -47,6 +47,7 @@ class PythonTradingEngine:
         self.weights = {'trend': 25, 'momentum': 15, 'rsi': 20, 'macd': 15, 'volatility': 15, 'breakout': 10}
         self.last_analysis = {} # Cache for UI
         self.daily_loss_limit = 3.0 # 3% Max Daily Loss
+        self.current_task = "Engine Starting..."
     
     def is_market_open(self):
         now_utc = datetime.now(timezone.utc)
@@ -66,23 +67,28 @@ class PythonTradingEngine:
                     time.sleep(60)
                 
                 if self.is_market_open():
+                    self.current_task = "Market Open: Preparing Scanner"
                     with self.app.app_context():
                         admin = db.session.query(User).filter_by(role='admin').first()
                         if admin:
                             if self.check_daily_protection(admin):
                                 # Auto-login admin if session missing
                                 if admin.id not in user_sessions:
+                                    self.current_task = "Logging into Angel One..."
                                     login_angel_one(admin, self.app)
                                 
                                 if admin.id in user_sessions:
                                     self.scan_market(user_sessions[admin.id])
                             
+                        self.current_task = "Monitoring Active Positions"
                         self.monitor_positions()
                     time.sleep(10) # Scanner frequency
                 else:
                     # After market hours: self-improve
+                    self.current_task = "Market Closed: Waiting"
                     now_min = now.hour * 60 + now.minute
                     if 945 <= now_min <= 960: # 3:45 PM to 4:00 PM
+                        self.current_task = "AI: Optimizing Strategy"
                         self.optimize_strategy_weights()
                         time.sleep(900) # Only run once
                     time.sleep(60)
@@ -92,6 +98,7 @@ class PythonTradingEngine:
 
     def scan_market(self, smart_api):
         for name, token in self.indices.items():
+            self.current_task = f"Analyzing {name}"
             try:
                 # 1. Fetch Real LTP (All indices are in NSE)
                 exchange = "NSE" 
