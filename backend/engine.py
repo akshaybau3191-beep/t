@@ -263,39 +263,39 @@ class PythonTradingEngine:
         # Select strike (default to ATM for now, can be optimized)
         selected_strike = strikes['ATM']
         
-            # Generate symbolic name for logging/sim (In real, search for token)
-            # NIFTY24APR22500CE
-            expiry_str = "24APR" # Placeholder, in real should be dynamic
-            option_symbol = f"{index}{expiry_str}{selected_strike}{signal}"
+        # Generate symbolic name for logging/sim (In real, search for token)
+        # NIFTY24APR22500CE
+        expiry_str = "24APR" # Placeholder, in real should be dynamic
+        option_symbol = f"{index}{expiry_str}{selected_strike}{signal}"
+        
+        # In real scenario, search for token
+        # For now, we use a placeholder or the index token for paper
+        token = f"OPT-{index}-{selected_strike}-{signal}" 
+        
+        # Prepare strategy snapshot
+        snapshot = json.dumps(data)
+        
+        pos = db.session.query(Position).filter_by(user_id=user.id, token=token).first()
+        if pos and pos.quantity != 0:
+            return 
             
-            # In real scenario, search for token
-            # For now, we use a placeholder or the index token for paper
-            token = f"OPT-{index}-{selected_strike}-{signal}" 
-            
-            # Prepare strategy snapshot
-            snapshot = json.dumps(data)
-            
-            pos = db.session.query(Position).filter_by(user_id=user.id, token=token).first()
-            if pos and pos.quantity != 0:
-                return 
-                
-            mode = user.config.trading_mode
-            if mode == 'LIVE':
-                print(f"[*] LIVE Trade Execution for {user.username} on {option_symbol}")
-                # order_params = { ... exchange: 'NFO', tradingsymbol: option_symbol, ... }
-            else:
-                print(f"[*] PAPER Trade Simulation for {user.username} on {option_symbol}")
-                mock_trade = {
-                    'orderid': f'MOCK-{int(time.time())}',
-                    'tradingsymbol': option_symbol,
-                    'symboltoken': token,
-                    'transactiontype': 'BUY', 
-                    'quantity': '50',
-                    'price': '100.0', # Placeholder for option premium
-                    'status': 'COMPLETE',
-                    'strategy_snapshot': snapshot
-                }
-                update_position_from_trade(user.id, mock_trade, self.app, mode=mode)
+        mode = user.config.trading_mode
+        if mode == 'LIVE':
+            print(f"[*] LIVE Trade Execution for {user.username} on {option_symbol}")
+            # order_params = { ... exchange: 'NFO', tradingsymbol: option_symbol, ... }
+        else:
+            print(f"[*] PAPER Trade Simulation for {user.username} on {option_symbol}")
+            mock_trade = {
+                'orderid': f'MOCK-{int(time.time())}',
+                'tradingsymbol': option_symbol,
+                'symboltoken': token,
+                'transactiontype': 'BUY', 
+                'quantity': '50',
+                'price': '100.0', # Placeholder for option premium
+                'status': 'COMPLETE',
+                'strategy_snapshot': snapshot
+            }
+            update_position_from_trade(user.id, mock_trade, self.app, mode=mode)
 
     def monitor_positions(self):
         """Monitor open positions for target/stop-loss with real LTP"""
