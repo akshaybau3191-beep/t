@@ -38,6 +38,7 @@ class Trade(db.Model):
     price = db.Column(db.Float)
     status = db.Column(db.String(20)) # COMPLETE, REJECTED, etc.
     mode = db.Column(db.String(10), default='PAPER') # LIVE/PAPER
+    reason = db.Column(db.String(100)) # Reason for mode (e.g., 'Insufficient Capital')
     strategy_snapshot = db.Column(db.Text) # JSON string of indicator values
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 

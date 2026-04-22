@@ -237,9 +237,12 @@ def get_trade_history():
             'price': t.price,
             'status': t.status,
             'mode': t.mode,
-            'time': t.timestamp.strftime('%H:%M:%S')
+            'time': t.timestamp.strftime('%H:%M:%S'),
+            'reason': t.reason
         })
     return jsonify(history)
+
+@app.route('/api/user/positions', methods=['GET'])
 @login_required
 def user_positions():
     from backend.models import Position

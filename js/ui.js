@@ -542,10 +542,12 @@ async function updateTrades() {
                     const div = document.createElement('div');
                     div.className = 'list-item';
                     const badgeClass = t.mode === 'LIVE' ? 'badge-live' : 'badge-paper';
+                    const reasonText = t.reason ? `<div style="font-size:10px; color:var(--md-sys-color-on-surface-variant); margin-top:4px;">Reason: ${t.reason}</div>` : '';
                     div.innerHTML = `
                         <div class="item-info">
                             <span class="title">${t.symbol} <span class="mode-badge ${badgeClass}">${t.mode}</span></span>
                             <span class="subtitle">${t.type} | Qty: ${t.qty} | Price: ${t.price.toFixed(2)}</span>
+                            ${reasonText}
                         </div>
                         <span class="subtitle">${t.time}</span>
                     `;

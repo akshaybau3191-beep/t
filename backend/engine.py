@@ -287,47 +287,82 @@ class PythonTradingEngine:
         slippage = 0.001 # 0.1% buffer
         limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
         
-        # 3. Mode Selection with Risk Fallback
+        # 3. Mode Selection with Risk & Capital Fallback
         # Check if user has reached their daily limits
         allowed, reason = self.check_user_risk(user)
         
+        # Check Capital Exposure
+        # Calculate current deployed margin (sum of absolute values of current positions)
+        with self.app.app_context():
+            active_positions = db.session.query(Position).filter_by(user_id=user.id, mode='LIVE').all()
+            deployed_capital = sum(abs(p.quantity * p.avg_price) for p in active_positions)
+            
+        new_trade_value = lot_size * data['price']
+        total_required = deployed_capital + new_trade_value
+        capital_limit = user_cfg.starting_capital or 100000.0
+        
         mode = user_cfg.trading_mode
-        if mode == 'LIVE' and not allowed:
-            print(f"[*] Downgrading to PAPER for {user.username} | Reason: {reason}")
-            mode = 'PAPER' # Fallback to Paper if limits reached
+        exec_reason = "Admin Signal"
+        
+        if mode == 'LIVE':
+            if not allowed:
+                print(f"[*] Downgrading to PAPER for {user.username} | Reason: {reason}")
+                mode = 'PAPER'
+                exec_reason = reason
+            elif total_required > capital_limit:
+                print(f"[*] Downgrading to PAPER for {user.username} | Reason: Capital Limit Exceeded (Req: ₹{total_required:.0f}, Limit: ₹{capital_limit:.0f})")
+                mode = 'PAPER'
+                exec_reason = f"Capital Limit Exceeded (₹{total_required:.0f})"
+            else:
+                exec_reason = "Risk Check Passed"
             
         max_retries = 3
-        
         for attempt in range(max_retries):
             try:
+                order_id = f"MOCK-{int(time.time())}"
                 if mode == 'LIVE':
                     print(f"[*] LIVE Execution (Attempt {attempt+1}) for {user.username} on {real_symbol} | Qty: {lot_size} | Limit: {limit_price}")
-                    # order_params = { ... exchange: 'NFO', tradingsymbol: real_symbol, quantity: lot_size, price: limit_price ... }
-                    # obj = user_sessions[user.id]
                     # order_id = obj.placeOrder(order_params)
-                    break 
-                else:
-                    print(f"[*] PAPER Simulation for {user.username} on {real_symbol} | Qty: {lot_size}")
-                    mock_trade = {
-                        'orderid': f'MOCK-{int(time.time())}',
+                    # if order_id: break
+                
+                # Update DB and Positions
+                from backend.models import Trade
+                with self.app.app_context():
+                    new_trade = Trade(
+                        user_id=user.id,
+                        order_id=order_id,
+                        symbol=real_symbol,
+                        token=real_token,
+                        transaction_type=signal,
+                        quantity=lot_size,
+                        price=data['price'],
+                        status='COMPLETE',
+                        mode=mode,
+                        reason=exec_reason,
+                        strategy_snapshot=snapshot
+                    )
+                    db.session.add(new_trade)
+                    
+                    mock_data = {
+                        'orderid': order_id,
                         'tradingsymbol': real_symbol,
                         'symboltoken': real_token,
-                        'transactiontype': 'BUY', 
+                        'transactiontype': signal,
                         'quantity': str(lot_size),
-                        'price': str(data['price']), 
-                        'status': 'COMPLETE',
-                        'strategy_snapshot': snapshot
+                        'price': str(data['price']),
+                        'status': 'COMPLETE'
                     }
-                    update_position_from_trade(user.id, mock_trade, self.app, mode=mode)
-                    break
+                    update_position_from_trade(user.id, mock_data, self.app, mode=mode)
+                    db.session.commit()
+                break
             except Exception as e:
                 print(f"[!] Execution Attempt {attempt+1} failed: {e}")
-                time.sleep(1) # Small delay before retry
+                time.sleep(1)
         
         # Audit Logging
         self.audit_logger.log_trade({
             'symbol': real_symbol,
-            'type': 'BUY',
+            'type': signal,
             'qty': lot_size,
             'price': data['price'],
             'confidence': data['signal_strength'],
