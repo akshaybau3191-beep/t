@@ -62,7 +62,8 @@ def init_db():
                     ('starting_capital', 'FLOAT DEFAULT 100000.0'),
                     ('max_daily_loss_pct', 'FLOAT DEFAULT 3.0'),
                     ('risk_per_trade_pct', 'FLOAT DEFAULT 2.0'),
-                    ('min_confidence_score', 'INTEGER DEFAULT 75')
+                    ('min_confidence_score', 'INTEGER DEFAULT 75'),
+                    ('api_secret', 'VARCHAR(100)')
                 ]
                 for col, col_type in columns_to_add:
                     if col not in columns:
@@ -71,13 +72,21 @@ def init_db():
                             db.session.commit()
                             print(f"[*] Migrated: Added {col} to angel_config")
                         except Exception:
-                            db.session.rollback() # Column likely exists
+                            db.session.rollback()
                 
                 cursor.execute("PRAGMA table_info(trade)")
                 trade_columns = [c[1] for c in cursor.fetchall()]
                 if 'strategy_snapshot' not in trade_columns:
-                    print("[*] Migrating database: Adding 'strategy_snapshot' to 'trade'...")
-                    cursor.execute("ALTER TABLE trade ADD COLUMN strategy_snapshot TEXT")
+                    try:
+                        db.session.execute(text("ALTER TABLE trade ADD COLUMN strategy_snapshot TEXT"))
+                        db.session.commit()
+                    except Exception: db.session.rollback()
+                
+                if 'reason' not in trade_columns:
+                    try:
+                        db.session.execute(text("ALTER TABLE trade ADD COLUMN reason VARCHAR(100)"))
+                        db.session.commit()
+                    except Exception: db.session.rollback()
                 
                 # Ensure every user has an AngelConfig
                 cursor.execute("SELECT id FROM user")
