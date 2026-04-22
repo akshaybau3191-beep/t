@@ -155,7 +155,7 @@ class PythonTradingEngine:
                         if token not in self.option_candles:
                             self.option_candles[token] = self.fetch_option_candles(smart_api, token)
                         
-                        # 2. Modular Signal Generation
+                        # 2. Modular Signal Generation (Based on Admin's Threshold)
                         analysis = self.strategy_manager.analyze_option(
                             self.option_candles[token], 
                             o_data, 
@@ -163,9 +163,12 @@ class PythonTradingEngine:
                             ltp
                         )
                         
-                        # Note: In multi-user scan, we might need to check signal 
-                        # but dispatch only to users whose threshold is met.
-                        if analysis['signal_strength'] >= 50: # Base threshold for dispatch
+                        # Find Admin's Threshold
+                        with self.app.app_context():
+                            admin = db.session.query(User).filter_by(role='admin').first()
+                            min_score = admin.config.min_confidence_score if admin and admin.config else 75
+                        
+                        if analysis['signal_strength'] >= min_score:
                             self.current_task = f"Signal Found: {opt_info['symbol']}"
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
             except Exception as e:
@@ -281,15 +284,18 @@ class PythonTradingEngine:
         # 2. Dynamic Lot Sizing & Slippage
         user_cfg = user.config
         lot_size = self.risk_manager.calculate_lot_size(user_cfg, index, data['price'])
-        slippage = 0.001 # 0.1% hardcoded for now or add to model
+        slippage = 0.001 # 0.1% buffer
         limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
         
-        # 3. User Signal Threshold
-        if data['signal_strength'] < user_cfg.min_confidence_score:
-            print(f"[*] Trade skipped for {user.username}: Strength {data['signal_strength']} < Threshold {user_cfg.min_confidence_score}")
-            return
-            
+        # 3. Mode Selection with Risk Fallback
+        # Check if user has reached their daily limits
+        allowed, reason = self.check_user_risk(user)
+        
         mode = user_cfg.trading_mode
+        if mode == 'LIVE' and not allowed:
+            print(f"[*] Downgrading to PAPER for {user.username} | Reason: {reason}")
+            mode = 'PAPER' # Fallback to Paper if limits reached
+            
         max_retries = 3
         
         for attempt in range(max_retries):
@@ -374,7 +380,8 @@ class PythonTradingEngine:
                         print(f"[!] Monitoring Error for {pos.symbol}: {e}")
             db.session.commit()
 
-    def check_daily_protection(self, user):
+    def check_user_risk(self, user):
+        """Check if user is allowed to trade LIVE based on their P&L limits"""
         from backend.models import DailyStats
         stats_db = db.session.query(DailyStats).filter_by(user_id=user.id, date=date.today()).first()
         
@@ -383,11 +390,10 @@ class PythonTradingEngine:
             'trades_count': stats_db.trades_count if stats_db else 0
         }
         
-        allowed, reason = self.risk_manager.can_trade(user.config, current_stats)
-        if not allowed:
-            # We don't want to spam the engine task with a single user's risk error
-            # print(f"[*] User {user.username} Risk Block: {reason}")
-            return False
+        return self.risk_manager.can_trade(user.config, current_stats)
+
+    def check_daily_protection(self, user):
+        # This is used for the global loop, we keep it simple
         return True
 
     def optimize_strategy_weights(self):
