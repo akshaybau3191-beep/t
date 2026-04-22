@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(() => {
             updateStats();
             updateTrades();
-            if (activeChartIndex) updateChart();
+            updateAnalysis();
         }, 5000);
     }
 
@@ -352,94 +352,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     checkSession();
 
-    // --- CHARTING ---
-    let chart = null;
-    let candleSeries = null;
-    let ema21Series = null;
-    let ema50Series = null;
-    let activeChartIndex = 'NIFTY';
+    // --- ANALYSIS ---
+    let activeAnalysisIndex = 'NIFTY';
 
-    function initChart() {
-        const container = document.getElementById('tv-chart');
-        if (!container) return;
-
-        chart = LightweightCharts.createChart(container, {
-            layout: {
-                backgroundColor: '#131722',
-                textColor: '#d1d4dc',
-            },
-            grid: {
-                vertLines: { color: '#2b2b43' },
-                horzLines: { color: '#2b2b43' },
-            },
-            timeScale: {
-                timeVisible: true,
-                secondsVisible: false,
-            },
-        });
-
-        candleSeries = chart.addCandlestickSeries();
-        ema21Series = chart.addLineSeries({ color: '#2196F3', lineWidth: 1 });
-        ema50Series = chart.addLineSeries({ color: '#FF9800', lineWidth: 1 });
-
-        updateChart();
-    }
-
-    async function updateChart() {
+    async function updateAnalysis() {
         try {
-            const res = await fetch(`/api/market/candles/${activeChartIndex}`);
+            const res = await fetch(`/api/market/candles/${activeAnalysisIndex}`);
             const data = await res.json();
             
-            if (data.candles && data.candles.length > 0) {
-                const formatted = data.candles.map(c => ({
-                    time: new Date(c[0]).getTime() / 1000,
-                    open: parseFloat(c[1]),
-                    high: parseFloat(c[2]),
-                    low: parseFloat(c[3]),
-                    close: parseFloat(c[4])
-                }));
-                candleSeries.setData(formatted);
-
-                // Add EMA data if available in analysis or calculate locally
-                // For now, let's just focus on candles. EMA can be added later.
-            }
-
             if (data.analysis) {
                 const a = data.analysis;
-                document.getElementById('strategy-score-val').textContent = `${a.total_score}%`;
-                document.getElementById('strategy-score-val').style.color = a.total_score >= 75 ? 'var(--success)' : 'var(--accent)';
+                const scoreVal = document.getElementById('strategy-score-val');
+                const scoreDetails = document.getElementById('score-details');
                 
-                document.getElementById('score-details').innerHTML = `
-                    Trend: ${a.trend_score} | RSI: ${a.rsi_score.toFixed(1)} | MACD: ${a.macd_score} | Vol: ${a.vol_score} | Breakout: ${a.breakout_score}
-                `;
+                if (scoreVal) {
+                    scoreVal.textContent = `${a.total_score}%`;
+                    scoreVal.style.color = a.total_score >= 75 ? 'var(--success)' : 'var(--accent)';
+                }
+                
+                if (scoreDetails) {
+                    scoreDetails.innerHTML = `
+                        Trend: ${a.trend_score} | RSI: ${a.rsi_score.toFixed(1)} | MACD: ${a.macd_score} | Vol: ${a.vol_score} | Breakout: ${a.breakout_score}
+                    `;
+                }
             }
-        } catch (e) { console.error("Chart error:", e); }
+        } catch (e) { console.error("Analysis error:", e); }
     }
 
-    window.changeChartIndex = (index) => {
-        activeChartIndex = index;
-        updateChart();
-    };
-
-    // Initialize chart if we are on home view
-    setTimeout(initChart, 1000);
+    // Initialize analysis
+    updateAnalysis();
 });
 
-async function updateIndices() {
-    try {
-        const res = await fetch('/api/market/indices');
-        const indices = await res.json();
-        const container = document.getElementById('indices-container');
-        if (container) {
-            container.innerHTML = indices.map(i => `
-                <div class="index-card">
-                    <span class="name">${i.name}</span>
-                    <span class="val ${i.change >= 0 ? 'success' : 'danger'}">${i.ltp.toFixed(2)}</span>
-                </div>
-            `).join('');
-        }
-    } catch (e) { console.error(e); }
-}
+
 
 async function updateStats() {
     try {
@@ -463,7 +407,7 @@ async function updateStats() {
         if (stats.is_market_open) {
             dot.classList.add('online');
             statusText.textContent = 'Active';
-            updateIndices();
+
         } else {
             dot.classList.remove('online');
             statusText.textContent = 'Closed';
