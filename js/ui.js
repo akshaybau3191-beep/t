@@ -154,20 +154,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function loadConfig() {
-        const res = await fetch('/api/user/config');
-        const config = await res.json();
-        if (config) {
-            document.getElementById('api-key').value = config.api_key || '';
-            document.getElementById('client-code').value = config.client_code || '';
-            document.getElementById('trading-pass').value = config.password || '';
-            document.getElementById('totp-secret').value = config.totp_secret || '';
-            document.getElementById('callback-url-display').textContent = config.callback_url || '';
-            document.getElementById('postback-url-display').textContent = config.postback_url || '';
-            
-            const modeToggle = document.getElementById('mode-toggle');
-            modeToggle.checked = (config.trading_mode === 'LIVE');
-            updateModeLabel(config.trading_mode);
-        }
+        try {
+            const res = await fetch('/api/user/broker-config');
+            const config = await res.json();
+            if (config) {
+                if (document.getElementById('api-key')) document.getElementById('api-key').value = config.api_key || '';
+                if (document.getElementById('client-code')) document.getElementById('client-code').value = config.client_code || '';
+                if (document.getElementById('trading-pass')) document.getElementById('trading-pass').value = config.password || '';
+                if (document.getElementById('totp-secret')) document.getElementById('totp-secret').value = config.totp_secret || '';
+                
+                const callbackEl = document.getElementById('callback-url-display');
+                const postbackEl = document.getElementById('postback-url-display');
+                if (callbackEl) callbackEl.textContent = config.callback_url || 'N/A';
+                if (postbackEl) postbackEl.textContent = config.postback_url || 'N/A';
+                
+                const modeToggle = document.getElementById('mode-toggle');
+                if (modeToggle) {
+                    modeToggle.checked = (config.trading_mode === 'LIVE');
+                    updateModeLabel(config.trading_mode);
+                }
+            }
+        } catch (e) { console.error("Error loading broker config", e); }
     }
 
     function updateModeLabel(mode) {
