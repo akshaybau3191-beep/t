@@ -58,8 +58,14 @@ class PythonTradingEngine:
                 if self.is_market_open():
                     with self.app.app_context():
                         admin = db.session.query(User).filter_by(role='admin').first()
-                        if admin and admin.id in user_sessions:
-                            self.scan_market(user_sessions[admin.id])
+                        if admin:
+                            # Auto-login admin if session missing
+                            if admin.id not in user_sessions:
+                                login_angel_one(admin, self.app)
+                            
+                            if admin.id in user_sessions:
+                                self.scan_market(user_sessions[admin.id])
+                        
                         self.monitor_positions()
                     time.sleep(10) # Scanner frequency
                 else:
@@ -75,7 +81,7 @@ class PythonTradingEngine:
                 # 1. Fetch Real LTP
                 exchange = "NSE" if name == "NIFTY" or name == "BANKNIFTY" else "NFO"
                 # For indices, NSE is correct for NIFTY/BANKNIFTY spots
-                ltp_resp = smart_api.ltpData("NSE", name, token)
+                ltp_resp = smart_api.ltpData(exchange, name, token)
                 if not ltp_resp.get('status'): continue
                 ltp = float(ltp_resp['data']['ltp'])
 

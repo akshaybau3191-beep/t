@@ -352,6 +352,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     checkSession();
 });
 
+async function updateIndices() {
+    try {
+        const res = await fetch('/api/market/indices');
+        const indices = await res.json();
+        const container = document.getElementById('indices-container');
+        if (container) {
+            container.innerHTML = indices.map(i => `
+                <div class="index-card">
+                    <span class="name">${i.name}</span>
+                    <span class="val ${i.change >= 0 ? 'success' : 'danger'}">${i.ltp.toFixed(2)}</span>
+                </div>
+            `).join('');
+        }
+    } catch (e) { console.error(e); }
+}
+
 async function updateStats() {
     try {
         const res = await fetch('/api/user/stats');
@@ -374,6 +390,7 @@ async function updateStats() {
         if (stats.is_market_open) {
             dot.classList.add('online');
             statusText.textContent = 'Active';
+            updateIndices();
         } else {
             dot.classList.remove('online');
             statusText.textContent = 'Closed';

@@ -201,6 +201,35 @@ def user_positions():
         'avg_price': p.avg_price, 'realized': p.realized_pnl, 'unrealized': p.unrealized_pnl
     } for p in positions])
 
+@app.route('/api/market/indices', methods=['GET'])
+@login_required
+def market_indices():
+    # Retrieve admin session to fetch LTP data
+    admin_user = db.session.query(User).filter_by(role='admin').first()
+    if admin_user and admin_user.id not in user_sessions:
+        login_angel_one(admin_user, app)
+        
+    if not admin_user or admin_user.id not in user_sessions:
+        return jsonify({'success': False, 'message': 'Engine not logged in'}), 503
+    smart_api = user_sessions[admin_user.id]
+    engine = PythonTradingEngine(app)
+    result = []
+    for name, token in engine.indices.items():
+        try:
+            # Use NSE for index LTP
+            ltp_resp = smart_api.ltpData('NSE', name, token)
+            if not ltp_resp.get('status'):
+                continue
+            ltp = float(ltp_resp['data']['ltp'])
+            # Simple change calculation: compare with EMA21 if available, else 0%
+            # For demo, we set change to 0.0
+            change = 0.0
+            result.append({'name': name, 'ltp': ltp, 'change': change})
+        except Exception as e:
+            print(f"[!] Market index fetch error for {name}: {e}")
+            continue
+    return jsonify(result)
+
 @app.route('/api/user/stats', methods=['GET'])
 @login_required
 def user_stats():
