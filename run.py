@@ -311,8 +311,10 @@ def user_stats():
     is_open = engine.is_market_open()
     
     engine_task = "Starting..."
+    scanned_count = 0
     if hasattr(app, 'trading_engine'):
         engine_task = app.trading_engine.current_task
+        scanned_count = app.trading_engine.scanned_count
     
     return jsonify({
         'daily_pnl': daily_pnl,
@@ -320,7 +322,8 @@ def user_stats():
         'total_real_profit': total_real_profit,
         'cagr': cagr,
         'is_market_open': is_open,
-        'engine_task': engine_task
+        'engine_task': engine_task,
+        'scanned_count': scanned_count
     })
 
 @app.route('/api/angel/postback/<username>', methods=['POST'])

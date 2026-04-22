@@ -418,6 +418,16 @@ async function updateStats() {
             taskText.textContent = stats.engine_task || 'Idle';
         }
 
+        const countText = document.getElementById('scanned-count');
+        if (countText) {
+            countText.textContent = `Scanning ${stats.scanned_count || 0} scripts`;
+        }
+
+        const timeText = document.getElementById('last-scan-time');
+        if (timeText) {
+            timeText.textContent = new Date().toLocaleTimeString();
+        }
+
         // Sync Home "Active Positions" simplified view
         const posRes = await fetch('/api/user/positions');
         const positions = await posRes.json();

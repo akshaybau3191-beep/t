@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta, date, timezone
 from SmartApi import SmartConnect
 from backend.models import db, User, AngelConfig
+from backend.symbols import SymbolManager
 
 # Global dictionary to store active SmartConnect sessions
 user_sessions = {}
@@ -48,6 +49,8 @@ class PythonTradingEngine:
         self.last_analysis = {} # Cache for UI
         self.daily_loss_limit = 3.0 # 3% Max Daily Loss
         self.current_task = "Engine Starting..."
+        self.symbol_manager = SymbolManager()
+        self.scanned_count = 0
     
     def is_market_open(self):
         now_utc = datetime.now(timezone.utc)
@@ -97,97 +100,92 @@ class PythonTradingEngine:
                 time.sleep(10)
 
     def scan_market(self, smart_api):
-        for name, token in self.indices.items():
-            self.current_task = f"Analyzing {name}"
+        # We focus on NIFTY and BANKNIFTY for multi-strike scanning as per user request
+        indices_to_scan = ['NIFTY', 'BANKNIFTY']
+        
+        for name in indices_to_scan:
             try:
-                # 1. Fetch Real LTP (All indices are in NSE)
-                exchange = "NSE" 
-                ltp_resp = smart_api.ltpData(exchange, name, token)
+                self.current_task = f"Fetching {name} LTP"
+                token = self.indices.get(name)
+                ltp_resp = smart_api.ltpData("NSE", name, token)
                 if not ltp_resp.get('status'): continue
                 ltp = float(ltp_resp['data']['ltp'])
 
-                # 2. Fetch Historical Data for Indicators
-                # ... (keep existing candle data logic)
-                # This is a simplified indicator calculation
-                to_date = (datetime.now() + timedelta(hours=5, minutes=30)).strftime('%Y-%m-%d %H:%M')
-                from_date = (datetime.now() + timedelta(hours=5, minutes=30) - timedelta(days=2)).strftime('%Y-%m-%d %H:%M')
+                self.current_task = f"Finding {name} strikes..."
+                options = self.symbol_manager.get_options(name, ltp, range_pts=500)
+                self.scanned_count = len(options)
                 
-                historic_params = {
-                    "exchange": "NSE",
-                    "symboltoken": token,
-                    "interval": "FIFTEEN_MINUTE",
-                    "fromdate": from_date,
-                    "todate": to_date
-                }
-                hist_resp = smart_api.getCandleData(historic_params)
+                if not options:
+                    print(f"[!] No active {name} options found in range.")
+                    continue
+
+                self.current_task = f"Scanning {len(options)} {name} scripts"
                 
-                if hist_resp.get('status') and hist_resp.get('data'):
-                    candles = hist_resp['data']
-                    if len(candles) < 50: continue
+                # Batch fetch market data (Full)
+                # Angel One supports up to 50 tokens per request for FULL data
+                # We split into chunks if necessary
+                chunk_size = 50
+                for i in range(0, len(options), chunk_size):
+                    chunk = options[i:i + chunk_size]
+                    tokens = [o['token'] for o in chunk]
                     
-                    df = pd.DataFrame(candles, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
-                    df['close'] = df['close'].astype(float)
+                    market_data_resp = smart_api.getMarketData("FULL", {"NSE" if name in self.indices else "NFO": tokens}) # Index is NSE, Options are NFO
+                    # Note: options are NFO
+                    market_data_resp = smart_api.getMarketData("FULL", {"NFO": tokens})
                     
-                    # 3. Advanced Indicators
-                    df['ema21'] = df['close'].ewm(span=21, adjust=False).mean()
-                    df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
-                    
-                    # RSI
-                    delta = df['close'].diff()
-                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                    df['rsi'] = 100 - (100 / (1 + (gain / loss)))
-                    
-                    # MACD
-                    exp12 = df['close'].ewm(span=12, adjust=False).mean()
-                    exp26 = df['close'].ewm(span=26, adjust=False).mean()
-                    df['macd'] = exp12 - exp26
-                    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
-                    
-                    # Bollinger Bands
-                    df['sma20'] = df['close'].rolling(window=20).mean()
-                    df['std20'] = df['close'].rolling(window=20).std()
-                    df['bb_upper'] = df['sma20'] + (df['std20'] * 2)
-                    df['bb_lower'] = df['sma20'] - (df['std20'] * 2)
-                    
-                    # ATR (14)
-                    high_low = df['high'] - df['low']
-                    high_close = (df['high'] - df['close'].shift()).abs()
-                    low_close = (df['low'] - df['close'].shift()).abs()
-                    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-                    df['atr'] = tr.rolling(window=14).mean()
-
-                    last = df.iloc[-1]
-                    prev = df.iloc[-2]
-                    
-                    analysis = {
-                        'price': ltp,
-                        'ema21': last['ema21'],
-                        'ema50': last['ema50'],
-                        'rsi': last['rsi'],
-                        'macd': last['macd'],
-                        'macd_signal': last['macd_signal'],
-                        'bb_upper': last['bb_upper'],
-                        'bb_lower': last['bb_lower'],
-                        'atr': last['atr'],
-                        'isBreakout': ltp > df['high'].iloc[-20:-1].max(),
-                        'trend_score': 0,
-                        'momentum_score': 0,
-                        'rsi_score': 0,
-                        'macd_score': 0,
-                        'vol_score': 0,
-                        'breakout_score': 0
-                    }
-                    
-                    score = self.calculate_total_score(analysis)
-                    analysis['total_score'] = score
-                    self.last_analysis[name] = analysis
-
-                    if score >= 75:
-                        signal = 'CE' if last['ema21'] > last['ema50'] else 'PE'
-                        self.dispatch_trade(name, analysis, signal)
+                    if not market_data_resp.get('status') or not market_data_resp.get('data'):
+                        continue
+                        
+                    fetched_data = market_data_resp['data']['fetched']
+                    for o_data in fetched_data:
+                        # Match back to our option info
+                        opt_info = next((o for o in chunk if o['token'] == o_data['symbolToken']), None)
+                        if not opt_info: continue
+                        
+                        # Advanced Analysis: OI, Volume, Depth
+                        analysis = self.analyze_option_scrip(o_data, opt_info, ltp)
+                        
+                        if analysis['signal_strength'] >= 80:
+                            self.current_task = f"Signal Found: {opt_info['symbol']}"
+                            self.dispatch_trade(name, analysis, opt_info['type']) # opt_info['type'] is CE or PE
             except Exception as e:
-                print(f"[!] Scanning Error for {name}: {e}")
+                print(f"[!] Advanced Scanning Error for {name}: {e}")
+
+    def analyze_option_scrip(self, data, info, index_ltp):
+        """Perform deep analysis on an individual option scrip"""
+        # data contains: ltp, netChange, percentChange, volume, buyqty, sellqty, oi, etc.
+        ltp = float(data.get('ltp', 0))
+        oi = int(data.get('oi', 0))
+        volume = int(data.get('volume', 0))
+        total_buy_qty = int(data.get('totalBuyQty', 0))
+        total_sell_qty = int(data.get('totalSellQty', 0))
+        
+        strength = 0
+        
+        # 1. Volume Spikes
+        # (In real, compare with 20-period avg volume. For now, use absolute threshold)
+        if volume > 10000: strength += 20
+        
+        # 2. OI Analysis (Trend confirmation)
+        # If CE OI is increasing while price is increasing = Long Build-up (Bullish)
+        # If PE OI is increasing while price is decreasing = Short Build-up (Bearish)
+        # For simplicity, we just look at OI presence and change if we had history.
+        if oi > 100000: strength += 20
+        
+        # 3. Orderbook Depth Bias
+        if total_buy_qty > total_sell_qty * 1.5: strength += 30
+        
+        # 4. In-the-money / At-the-money filter (Quality of strike)
+        diff = abs(info['strike'] - index_ltp)
+        if diff <= 100: strength += 10 # ATM/Near-ITM are better
+        
+        return {
+            'price': ltp,
+            'oi': oi,
+            'volume': volume,
+            'signal_strength': strength,
+            'total_score': strength # for UI compatibility
+        }
 
     def calculate_total_score(self, a):
         score = 0

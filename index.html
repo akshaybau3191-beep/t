@@ -42,11 +42,8 @@
     <header class="app-bar">
         <div class="app-bar-title">Elite Trader</div>
         <div class="status-indicator">
-            <div class="status-main">
-                <span class="dot" id="engine-status-dot"></span>
-                <span id="engine-status">Offline</span>
-            </div>
-            <div id="engine-task" class="status-task">Initializing...</div>
+            <span class="dot" id="engine-status-dot"></span>
+            <span id="engine-status">Offline</span>
         </div>
     </header>
 
@@ -54,6 +51,18 @@
     <div class="view-pager">
         <!-- Dashboard View -->
         <main id="view-home" class="view active">
+            <!-- AI Scanner Status Card -->
+            <div class="m3-card scanner-card">
+                <div class="m3-card-title">AI Engine Scanner</div>
+                <div class="scanner-content">
+                    <div id="engine-task" class="scanner-task">Initializing scanner...</div>
+                    <div class="scanner-details">
+                        <span id="scanned-count">Scanning 0 scripts</span>
+                        <span id="last-scan-time"></span>
+                    </div>
+                </div>
+            </div>
+
             <div class="m3-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <div class="m3-card-title" style="margin-bottom: 0;">Trading Mode</div>
