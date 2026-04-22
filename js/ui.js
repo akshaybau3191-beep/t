@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadRiskConfig() {
         try {
-            const res = await fetch('/api/admin/config');
+            const res = await fetch('/api/user/config');
             const config = await res.json();
             if (config.risk) {
                 document.getElementById('conf-total-capital').value = config.risk.total_capital;
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (saveRiskBtn) {
         saveRiskBtn.onclick = async () => {
             try {
-                const res = await fetch('/api/admin/config');
+                const res = await fetch('/api/user/config');
                 const config = await res.json();
                 
                 config.risk.total_capital = parseFloat(document.getElementById('conf-total-capital').value);
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 config.risk.risk_per_trade_pct = parseFloat(document.getElementById('conf-risk-trade').value);
                 config.strategy.min_confidence_score = parseInt(document.getElementById('conf-min-score').value);
 
-                const saveRes = await fetch('/api/admin/config', {
+                const saveRes = await fetch('/api/user/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(config)

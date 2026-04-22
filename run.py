@@ -471,24 +471,41 @@ def reload_config():
         return jsonify({'success': True})
     return jsonify({'success': False})
 
-@app.route('/api/admin/config', methods=['GET'])
-@admin_required
-def get_full_config():
-    if os.path.exists('config.json'):
-        with open('config.json', 'r') as f:
-            return jsonify(json.load(f))
-    return jsonify({})
-
-@app.route('/api/admin/config', methods=['POST'])
-@admin_required
-def update_full_config():
-    new_config = request.json
-    with open('config.json', 'w') as f:
-        json.dump(new_config, f, indent=4)
+@app.route('/api/user/config', methods=['GET'])
+@login_required
+def get_user_config():
+    user = db.session.query(User).get(session['user_id'])
+    if not user.config:
+        return jsonify({})
     
-    if hasattr(app, 'trading_engine'):
-        app.trading_engine.risk_manager.config = new_config
-        
+    return jsonify({
+        'risk': {
+            'total_capital': user.config.starting_capital,
+            'max_daily_loss_pct': user.config.max_daily_loss_pct,
+            'risk_per_trade_pct': user.config.risk_per_trade_pct
+        },
+        'strategy': {
+            'min_confidence_score': user.config.min_confidence_score
+        }
+    })
+
+@app.route('/api/user/config', methods=['POST'])
+@login_required
+def update_user_config():
+    user = db.session.query(User).get(session['user_id'])
+    if not user.config:
+        return jsonify({'success': False, 'message': 'No config found'})
+    
+    data = request.json
+    risk = data.get('risk', {})
+    strat = data.get('strategy', {})
+    
+    user.config.starting_capital = risk.get('total_capital', user.config.starting_capital)
+    user.config.max_daily_loss_pct = risk.get('max_daily_loss_pct', user.config.max_daily_loss_pct)
+    user.config.risk_per_trade_pct = risk.get('risk_per_trade_pct', user.config.risk_per_trade_pct)
+    user.config.min_confidence_score = strat.get('min_confidence_score', user.config.min_confidence_score)
+    
+    db.session.commit()
     return jsonify({'success': True})
 
 @app.route('/api/shutdown', methods=['POST'])

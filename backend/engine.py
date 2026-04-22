@@ -163,8 +163,9 @@ class PythonTradingEngine:
                             ltp
                         )
                         
-                        min_score = self.risk_manager.config.get('strategy', {}).get('min_confidence_score', 75)
-                        if analysis['signal_strength'] >= min_score:
+                        # Note: In multi-user scan, we might need to check signal 
+                        # but dispatch only to users whose threshold is met.
+                        if analysis['signal_strength'] >= 50: # Base threshold for dispatch
                             self.current_task = f"Signal Found: {opt_info['symbol']}"
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
             except Exception as e:
@@ -278,12 +279,18 @@ class PythonTradingEngine:
             return 
             
         # 2. Dynamic Lot Sizing & Slippage
-        lot_size = self.risk_manager.calculate_lot_size(index, data['price'])
-        slippage = self.risk_manager.config.get('execution', {}).get('slippage_buffer_pct', 0.1) / 100
+        user_cfg = user.config
+        lot_size = self.risk_manager.calculate_lot_size(user_cfg, index, data['price'])
+        slippage = 0.001 # 0.1% hardcoded for now or add to model
         limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
         
-        mode = user.config.trading_mode
-        max_retries = self.risk_manager.config.get('execution', {}).get('max_retries', 3)
+        # 3. User Signal Threshold
+        if data['signal_strength'] < user_cfg.min_confidence_score:
+            print(f"[*] Trade skipped for {user.username}: Strength {data['signal_strength']} < Threshold {user_cfg.min_confidence_score}")
+            return
+            
+        mode = user_cfg.trading_mode
+        max_retries = 3
         
         for attempt in range(max_retries):
             try:
@@ -376,9 +383,10 @@ class PythonTradingEngine:
             'trades_count': stats_db.trades_count if stats_db else 0
         }
         
-        allowed, reason = self.risk_manager.can_trade(current_stats)
+        allowed, reason = self.risk_manager.can_trade(user.config, current_stats)
         if not allowed:
-            self.current_task = f"Risk: {reason}"
+            # We don't want to spam the engine task with a single user's risk error
+            # print(f"[*] User {user.username} Risk Block: {reason}")
             return False
         return True
 

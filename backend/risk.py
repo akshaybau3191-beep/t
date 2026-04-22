@@ -16,40 +16,36 @@ class RiskManager:
             print(f"[!] Error loading risk config: {e}")
             return {}
 
-    def can_trade(self, current_stats):
+    def can_trade(self, user_config, current_stats):
         """
-        Check if trading is allowed based on daily limits.
+        Check if trading is allowed based on user-specific limits.
+        user_config: AngelConfig model object
         current_stats: { 'daily_pnl': float, 'trades_count': int }
         """
         if self.kill_switch_active:
-            return False, "Kill Switch Active"
+            return False, "Global Kill Switch Active"
             
-        risk_cfg = self.config.get('risk', {})
-        total_cap = risk_cfg.get('total_capital', 100000)
+        total_cap = user_config.starting_capital or 100000
         
         # 1. Daily Loss Limit
-        max_loss = (risk_cfg.get('max_daily_loss_pct', 3.0) / 100) * total_cap
+        max_loss = (user_config.max_daily_loss_pct / 100) * total_cap
         if current_stats.get('daily_pnl', 0) <= -max_loss:
             return False, f"Daily Loss Limit Reached: ₹{current_stats['daily_pnl']}"
             
-        # 2. Daily Profit Target
-        max_profit = (risk_cfg.get('max_daily_profit_pct', 5.0) / 100) * total_cap
+        # 2. Daily Profit Target (Keep global or add to model if needed)
+        # For now, use a fixed 5% or similar if not in model
+        max_profit = 0.05 * total_cap 
         if current_stats.get('daily_pnl', 0) >= max_profit:
             return False, f"Daily Profit Target Reached: ₹{current_stats['daily_pnl']}"
             
-        # 3. Max Trades
-        if current_stats.get('trades_count', 0) >= risk_cfg.get('max_trades_per_day', 10):
-            return False, "Max Daily Trades Reached"
-            
         return True, "Ready"
 
-    def calculate_lot_size(self, index, option_price):
+    def calculate_lot_size(self, user_config, index, option_price):
         """
-        Calculate lots based on risk per trade.
+        Calculate lots based on user's risk per trade pct.
         """
-        risk_cfg = self.config.get('risk', {})
-        total_cap = risk_cfg.get('total_capital', 100000)
-        risk_amt = (risk_cfg.get('risk_per_trade_pct', 2.0) / 100) * total_cap
+        total_cap = user_config.starting_capital or 100000
+        risk_amt = (user_config.risk_per_trade_pct / 100) * total_cap
         
         # Lot sizes for Angel One (Standard)
         lot_sizes = {'NIFTY': 50, 'BANKNIFTY': 15, 'FINNIFTY': 40}

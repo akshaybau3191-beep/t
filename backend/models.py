@@ -23,6 +23,9 @@ class AngelConfig(db.Model):
     totp_app_url = db.Column(db.String(200))
     trading_mode = db.Column(db.String(10), default='PAPER')
     starting_capital = db.Column(db.Float, default=100000.0)
+    max_daily_loss_pct = db.Column(db.Float, default=3.0)
+    risk_per_trade_pct = db.Column(db.Float, default=2.0)
+    min_confidence_score = db.Column(db.Integer, default=75)
 
 class Trade(db.Model):
     id = db.Column(db.Integer, primary_key=True)
