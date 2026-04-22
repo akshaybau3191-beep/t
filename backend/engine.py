@@ -152,7 +152,8 @@ class PythonTradingEngine:
                         
                         # 1. Maintain Rolling Candle Data (1-min)
                         token = opt_info['token']
-                        if token not in self.option_candles:
+                        # Fetch or retry if empty
+                        if token not in self.option_candles or not self.option_candles[token]:
                             self.option_candles[token] = self.fetch_option_candles(smart_api, token)
                         
                         # 2. Modular Signal Generation (Based on Admin's Threshold)

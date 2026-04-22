@@ -51,16 +51,27 @@ class SymbolManager:
         if not relevant:
             return []
             
-        # Identify current expiry
-        # Format usually: 25APR24 (Weekly/Monthly)
-        # We need to find the nearest expiry date
-        expiries = sorted(list(set(s.get('expiry') for s in relevant)))
-        if not expiries:
+        # Identify current expiry (Nearest date >= today)
+        today = datetime.now()
+        def parse_expiry(exp_str):
+            try:
+                # Format: 25APR2024 or 2024-04-25
+                for fmt in ('%d%b%Y', '%Y-%m-%d'):
+                    try: return datetime.strptime(exp_str, fmt)
+                    except: continue
+                return datetime.max
+            except: return datetime.max
+
+        unique_expiries = list(set(s.get('expiry') for s in relevant))
+        sorted_expiries = sorted(unique_expiries, key=parse_expiry)
+        
+        # Filter for future/today expiries only
+        future_expiries = [e for e in sorted_expiries if parse_expiry(e).date() >= today.date()]
+        if not future_expiries:
             return []
             
-        # For simplicity, assume the first expiry is the current one
-        # In production, we'd compare with today's date
-        current_expiry = expiries[0]
+        current_expiry = future_expiries[0]
+        print(f"[*] Identified Current Expiry: {current_expiry}")
         
         # Filter by expiry and strike range
         strike_min = ltp - range_pts
@@ -70,9 +81,11 @@ class SymbolManager:
         for s in relevant:
             if s.get('expiry') == current_expiry:
                 try:
-                    strike = float(s.get('strike', 0)) / 100 # Angel One often uses strike * 100
-                    if strike == 0: # Some use normal strike
-                        strike = float(s.get('strike', 0))
+                    # Angel One strike is usually actual strike (e.g., 22400.00)
+                    # But it's better to be safe
+                    raw_strike = float(s.get('strike', 0))
+                    # If strike is 2240000.0, it needs / 100
+                    strike = raw_strike / 100 if raw_strike > 100000 else raw_strike
                         
                     if strike_min <= strike <= strike_max:
                         options.append({
@@ -85,6 +98,7 @@ class SymbolManager:
                 except:
                     continue
         
+        print(f"[*] Found {len(options)} options for {name} (LTP: {ltp})")
         return options
 
 if __name__ == "__main__":
