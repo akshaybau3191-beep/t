@@ -450,6 +450,27 @@ def approve_sub():
         return jsonify({'success': True})
     return jsonify({'success': False})
 
+@app.route('/api/admin/kill_switch', methods=['POST'])
+@admin_required
+def toggle_kill_switch():
+    if hasattr(app, 'trading_engine'):
+        engine = app.trading_engine
+        data = request.json
+        if data.get('active'):
+            engine.risk_manager.activate_kill_switch()
+        else:
+            engine.risk_manager.deactivate_kill_switch()
+        return jsonify({'success': True, 'active': engine.risk_manager.kill_switch_active})
+    return jsonify({'success': False, 'message': 'Engine not found'})
+
+@app.route('/api/admin/reload_config', methods=['POST'])
+@admin_required
+def reload_config():
+    if hasattr(app, 'trading_engine'):
+        app.trading_engine.risk_manager.config = app.trading_engine.risk_manager.load_config()
+        return jsonify({'success': True})
+    return jsonify({'success': False})
+
 @app.route('/api/shutdown', methods=['POST'])
 @admin_required
 def shutdown():

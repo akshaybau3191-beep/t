@@ -2,10 +2,14 @@ import pyotp
 import json
 import pandas as pd
 import numpy as np
+import time
 from datetime import datetime, timedelta, date, timezone
 from SmartApi import SmartConnect
 from backend.models import db, User, AngelConfig
 from backend.symbols import SymbolManager
+from backend.risk import RiskManager
+from backend.logger import AuditLogger
+from backend.strategy import StrategyManager
 
 # Global dictionary to store active SmartConnect sessions
 user_sessions = {}
@@ -50,7 +54,11 @@ class PythonTradingEngine:
         self.daily_loss_limit = 3.0 # 3% Max Daily Loss
         self.current_task = "Engine Starting..."
         self.symbol_manager = SymbolManager()
+        self.risk_manager = RiskManager()
+        self.audit_logger = AuditLogger()
+        self.strategy_manager = StrategyManager(self.risk_manager)
         self.scanned_count = 0
+        self.option_candles = {} # token -> [candles]
     
     def is_market_open(self):
         now_utc = datetime.now(timezone.utc)
@@ -142,50 +150,44 @@ class PythonTradingEngine:
                         opt_info = next((o for o in chunk if o['token'] == o_data['symbolToken']), None)
                         if not opt_info: continue
                         
-                        # Advanced Analysis: OI, Volume, Depth
-                        analysis = self.analyze_option_scrip(o_data, opt_info, ltp)
+                        # 1. Maintain Rolling Candle Data (1-min)
+                        token = opt_info['token']
+                        if token not in self.option_candles:
+                            self.option_candles[token] = self.fetch_option_candles(smart_api, token)
                         
-                        if analysis['signal_strength'] >= 80:
+                        # 2. Modular Signal Generation
+                        analysis = self.strategy_manager.analyze_option(
+                            self.option_candles[token], 
+                            o_data, 
+                            opt_info, 
+                            ltp
+                        )
+                        
+                        min_score = self.risk_manager.config.get('strategy', {}).get('min_confidence_score', 75)
+                        if analysis['signal_strength'] >= min_score:
                             self.current_task = f"Signal Found: {opt_info['symbol']}"
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
             except Exception as e:
                 print(f"[!] Advanced Scanning Error for {name}: {e}")
 
-    def analyze_option_scrip(self, data, info, index_ltp):
-        """Perform deep analysis on an individual option scrip"""
-        # data contains: ltp, netChange, percentChange, volume, buyqty, sellqty, oi, etc.
-        ltp = float(data.get('ltp', 0))
-        oi = int(data.get('oi', 0))
-        volume = int(data.get('volume', 0))
-        total_buy_qty = int(data.get('totalBuyQty', 0))
-        total_sell_qty = int(data.get('totalSellQty', 0))
-        
-        strength = 0
-        
-        # 1. Volume Spikes
-        # (In real, compare with 20-period avg volume. For now, use absolute threshold)
-        if volume > 10000: strength += 20
-        
-        # 2. OI Analysis (Trend confirmation)
-        # If CE OI is increasing while price is increasing = Long Build-up (Bullish)
-        # If PE OI is increasing while price is decreasing = Short Build-up (Bearish)
-        # For simplicity, we just look at OI presence and change if we had history.
-        if oi > 100000: strength += 20
-        
-        # 3. Orderbook Depth Bias
-        if total_buy_qty > total_sell_qty * 1.5: strength += 30
-        
-        # 4. In-the-money / At-the-money filter (Quality of strike)
-        diff = abs(info['strike'] - index_ltp)
-        if diff <= 100: strength += 10 # ATM/Near-ITM are better
-        
-        return {
-            'price': ltp,
-            'oi': oi,
-            'volume': volume,
-            'signal_strength': strength,
-            'total_score': strength # for UI compatibility
-        }
+    def fetch_option_candles(self, smart_api, token):
+        try:
+            to_date = (datetime.now() + timedelta(hours=5, minutes=30)).strftime('%Y-%m-%d %H:%M')
+            from_date = (datetime.now() + timedelta(hours=5, minutes=30) - timedelta(minutes=60)).strftime('%Y-%m-%d %H:%M')
+            
+            params = {
+                "exchange": "NFO",
+                "symboltoken": token,
+                "interval": "ONE_MINUTE",
+                "fromdate": from_date,
+                "todate": to_date
+            }
+            resp = smart_api.getCandleData(params)
+            if resp.get('status') and resp.get('data'):
+                return resp['data']
+        except:
+            pass
+        return []
 
     def calculate_total_score(self, a):
         score = 0
@@ -263,6 +265,11 @@ class PythonTradingEngine:
         if user.id not in user_sessions: return
         from backend.models import db, Position
         
+        # 1. Order Validation
+        if self.risk_manager.kill_switch_active:
+            print("[!] Trade rejected: Kill Switch is ON")
+            return
+            
         # Prepare strategy snapshot
         snapshot = json.dumps(data)
         
@@ -270,23 +277,51 @@ class PythonTradingEngine:
         if pos and pos.quantity != 0:
             return 
             
+        # 2. Dynamic Lot Sizing & Slippage
+        lot_size = self.risk_manager.calculate_lot_size(index, data['price'])
+        slippage = self.risk_manager.config.get('execution', {}).get('slippage_buffer_pct', 0.1) / 100
+        limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
+        
         mode = user.config.trading_mode
-        if mode == 'LIVE':
-            print(f"[*] LIVE Trade Execution for {user.username} on {real_symbol}")
-            # order_params = { ... exchange: 'NFO', tradingsymbol: real_symbol, ... }
-        else:
-            print(f"[*] PAPER Trade Simulation for {user.username} on {real_symbol}")
-            mock_trade = {
-                'orderid': f'MOCK-{int(time.time())}',
-                'tradingsymbol': real_symbol,
-                'symboltoken': real_token,
-                'transactiontype': 'BUY', 
-                'quantity': '50',
-                'price': str(data['price']), 
-                'status': 'COMPLETE',
-                'strategy_snapshot': snapshot
-            }
-            update_position_from_trade(user.id, mock_trade, self.app, mode=mode)
+        max_retries = self.risk_manager.config.get('execution', {}).get('max_retries', 3)
+        
+        for attempt in range(max_retries):
+            try:
+                if mode == 'LIVE':
+                    print(f"[*] LIVE Execution (Attempt {attempt+1}) for {user.username} on {real_symbol} | Qty: {lot_size} | Limit: {limit_price}")
+                    # order_params = { ... exchange: 'NFO', tradingsymbol: real_symbol, quantity: lot_size, price: limit_price ... }
+                    # obj = user_sessions[user.id]
+                    # order_id = obj.placeOrder(order_params)
+                    break 
+                else:
+                    print(f"[*] PAPER Simulation for {user.username} on {real_symbol} | Qty: {lot_size}")
+                    mock_trade = {
+                        'orderid': f'MOCK-{int(time.time())}',
+                        'tradingsymbol': real_symbol,
+                        'symboltoken': real_token,
+                        'transactiontype': 'BUY', 
+                        'quantity': str(lot_size),
+                        'price': str(data['price']), 
+                        'status': 'COMPLETE',
+                        'strategy_snapshot': snapshot
+                    }
+                    update_position_from_trade(user.id, mock_trade, self.app, mode=mode)
+                    break
+            except Exception as e:
+                print(f"[!] Execution Attempt {attempt+1} failed: {e}")
+                time.sleep(1) # Small delay before retry
+        
+        # Audit Logging
+        self.audit_logger.log_trade({
+            'symbol': real_symbol,
+            'type': 'BUY',
+            'qty': lot_size,
+            'price': data['price'],
+            'confidence': data['signal_strength'],
+            'reason': data.get('reason', 'Strategy Alignment'),
+            'status': 'COMPLETE',
+            'pnl': 0.0
+        })
 
     def monitor_positions(self):
         """Monitor open positions for target/stop-loss with real LTP"""
@@ -334,13 +369,17 @@ class PythonTradingEngine:
 
     def check_daily_protection(self, user):
         from backend.models import DailyStats
-        stats = db.session.query(DailyStats).filter_by(user_id=user.id, date=date.today()).first()
-        if stats:
-            starting_capital = user.config.starting_capital if user.config else 100000.0
-            if starting_capital > 0:
-                loss_pct = (stats.total_pnl / starting_capital) * 100
-                if loss_pct <= -self.daily_loss_limit:
-                    return False
+        stats_db = db.session.query(DailyStats).filter_by(user_id=user.id, date=date.today()).first()
+        
+        current_stats = {
+            'daily_pnl': stats_db.total_pnl if stats_db else 0.0,
+            'trades_count': stats_db.trades_count if stats_db else 0
+        }
+        
+        allowed, reason = self.risk_manager.can_trade(current_stats)
+        if not allowed:
+            self.current_task = f"Risk: {reason}"
+            return False
         return True
 
     def optimize_strategy_weights(self):
