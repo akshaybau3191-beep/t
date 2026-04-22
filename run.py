@@ -181,9 +181,9 @@ def logout():
     session.clear()
     return jsonify({'success': True})
 
-@app.route('/api/user/config', methods=['GET', 'POST'])
+@app.route('/api/user/broker-config', methods=['GET', 'POST'])
 @login_required
-def user_config():
+def user_broker_config():
     user = db.session.get(User, session['user_id'])
     if request.method == 'POST':
         data = request.json
@@ -194,9 +194,8 @@ def user_config():
         user.config.client_code = data.get('client_code')
         user.config.password = data.get('password')
         user.config.totp_secret = data.get('totp_secret')
-        user.config.redirect_url = data.get('redirect_url')
-        user.config.totp_app_url = data.get('totp_app_url')
         db.session.commit()
+        # Automatically login after save
         login_angel_one(user, app)
         return jsonify({'success': True})
     
@@ -206,19 +205,14 @@ def user_config():
 
     if not user.config:
         return jsonify({
-            'callback_url': callback_url,
-            'postback_url': postback_url,
-            'static_ip': static_ip
+            'callback_url': callback_url, 'postback_url': postback_url, 'static_ip': static_ip
         })
     
     return jsonify({
         'api_key': user.config.api_key, 'client_code': user.config.client_code, 
         'password': user.config.password, 'totp_secret': user.config.totp_secret,
-        'redirect_url': user.config.redirect_url, 'totp_app_url': user.config.totp_app_url, 
         'trading_mode': user.config.trading_mode,
-        'callback_url': callback_url,
-        'postback_url': postback_url,
-        'static_ip': static_ip
+        'callback_url': callback_url, 'postback_url': postback_url, 'static_ip': static_ip
     })
 
 @app.route('/api/user/history', methods=['GET'])
@@ -497,11 +491,10 @@ def reload_config():
         return jsonify({'success': True})
     return jsonify({'success': False})
 
-@app.route('/api/user/config', methods=['GET'])
+@app.route('/api/user/risk-config', methods=['GET'])
 @login_required
-def get_user_config():
+def get_user_risk_config():
     user = db.session.query(User).get(session['user_id'])
-    # Ensure config exists
     if not user.config:
         new_cfg = AngelConfig(user_id=user.id)
         db.session.add(new_cfg)
@@ -518,33 +511,53 @@ def get_user_config():
         }
     })
 
-@app.route('/api/user/config', methods=['POST'])
+@app.route('/api/user/risk-config', methods=['POST'])
 @login_required
-def update_user_config():
+def update_user_risk_config():
     try:
         user = db.session.query(User).get(session['user_id'])
         if not user.config:
-            new_cfg = AngelConfig(user_id=user.id)
-            db.session.add(new_cfg)
-            db.session.commit()
-            user = db.session.query(User).get(session['user_id']) # Refresh
+            user.config = AngelConfig(user_id=user.id)
+            db.session.add(user.config)
         
         data = request.json
         risk = data.get('risk', {})
         strat = data.get('strategy', {})
         
-        # Explicit type conversion and validation
-        user.config.starting_capital = float(risk.get('total_capital') or 100000.0)
-        user.config.max_daily_loss_pct = float(risk.get('max_daily_loss_pct') or 3.0)
-        user.config.risk_per_trade_pct = float(risk.get('risk_per_trade_pct') or 2.0)
-        user.config.min_confidence_score = int(strat.get('min_confidence_score') or 75)
+        user.config.starting_capital = float(risk.get('total_capital') or user.config.starting_capital or 100000.0)
+        user.config.max_daily_loss_pct = float(risk.get('max_daily_loss_pct') or user.config.max_daily_loss_pct or 3.0)
+        user.config.risk_per_trade_pct = float(risk.get('risk_per_trade_pct') or user.config.risk_per_trade_pct or 2.0)
+        user.config.min_confidence_score = int(strat.get('min_confidence_score') or user.config.min_confidence_score or 75)
         
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
-        print(f"[!] Config Update Error: {e}")
         return jsonify({'success': False, 'message': str(e)})
+
+def daily_autologin_job():
+    """Background task to login all users at 9:15 AM IST"""
+    print("[*] Running Daily Auto-Login Job...")
+    with app.app_context():
+        users = db.session.query(User).filter_by(is_active=True).all()
+        for user in users:
+            if user.config and user.config.api_key:
+                print(f"[*] Auto-logging in user: {user.username}")
+                login_angel_one(user, app)
+
+def schedule_autologin():
+    """Simple thread-based scheduler for 9:15 AM IST"""
+    def run():
+        while True:
+            # Check every minute
+            now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+            if now.hour == 9 and now.minute == 15:
+                daily_autologin_job()
+                time.sleep(65) # Skip rest of the minute
+            time.sleep(30)
+    threading.Thread(target=run, daemon=True).start()
+
+schedule_autologin()
 
 @app.route('/api/shutdown', methods=['POST'])
 @admin_required

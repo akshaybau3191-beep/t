@@ -33,13 +33,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadRiskConfig() {
         try {
-            const res = await fetch('/api/user/config');
+            const res = await fetch('/api/user/risk-config');
             const config = await res.json();
             
-            document.getElementById('conf-total-capital').value = config.risk?.total_capital || 100000;
-            document.getElementById('conf-max-loss').value = config.risk?.max_daily_loss_pct || 3;
-            document.getElementById('conf-risk-trade').value = config.risk?.risk_per_trade_pct || 2;
-            document.getElementById('conf-min-score').value = config.strategy?.min_confidence_score || 75;
+            if (config.risk) {
+                document.getElementById('conf-total-capital').value = config.risk.total_capital;
+                document.getElementById('conf-max-loss').value = config.risk.max_daily_loss_pct;
+                document.getElementById('conf-risk-trade').value = config.risk.risk_per_trade_pct;
+            }
+            if (config.strategy) {
+                document.getElementById('conf-min-score').value = config.strategy.min_confidence_score;
+            }
             
         } catch (e) { console.error("Error loading risk config", e); }
     }
@@ -59,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 };
 
-                const saveRes = await fetch('/api/user/config', {
+                const saveRes = await fetch('/api/user/risk-config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(config)
@@ -67,6 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const result = await saveRes.json();
                 if (result.success) {
                     alert("Risk controls updated successfully!");
+                    loadRiskConfig(); // Reload to verify
                 } else {
                     alert("Error: " + (result.message || "Unknown error"));
                 }
@@ -188,12 +193,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             password: document.getElementById('trading-pass').value,
             totp_secret: document.getElementById('totp-secret').value
         };
-        const res = await fetch('/api/user/config', {
+        
+        const res = await fetch('/api/user/broker-config', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(config)
         });
-        if ((await res.json()).success) alert("Configuration updated.");
+        const data = await res.json();
+        if (data.success) {
+            alert("Broker settings saved! System will now attempt to login.");
+            loadConfig(); // Reload fields
+        } else {
+            alert("Error saving settings");
+        }
     };
 
     // --- SUBSCRIPTION LOGIC ---
