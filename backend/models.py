@@ -35,6 +35,7 @@ class Trade(db.Model):
     price = db.Column(db.Float)
     status = db.Column(db.String(20)) # COMPLETE, REJECTED, etc.
     mode = db.Column(db.String(10), default='PAPER') # LIVE/PAPER
+    strategy_snapshot = db.Column(db.Text) # JSON string of indicator values
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 class Position(db.Model):

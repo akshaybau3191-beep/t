@@ -58,7 +58,14 @@ def init_db():
                 if 'starting_capital' not in columns:
                     print("[*] Migrating database: Adding 'starting_capital' to 'angel_config'...")
                     cursor.execute("ALTER TABLE angel_config ADD COLUMN starting_capital FLOAT DEFAULT 100000.0")
-                    conn.commit()
+                
+                cursor.execute("PRAGMA table_info(trade)")
+                trade_columns = [c[1] for c in cursor.fetchall()]
+                if 'strategy_snapshot' not in trade_columns:
+                    print("[*] Migrating database: Adding 'strategy_snapshot' to 'trade'...")
+                    cursor.execute("ALTER TABLE trade ADD COLUMN strategy_snapshot TEXT")
+                
+                conn.commit()
                 conn.close()
             except Exception as e:
                 print(f"[!] Migration Error: {e}")
