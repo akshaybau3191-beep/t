@@ -20,12 +20,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (targetView && targetNav) {
             targetView.classList.add('active');
             targetNav.classList.add('active');
+            
+            if (viewId === 'config') {
+                loadRiskConfig();
+            }
         }
     }
 
     navDests.forEach(dest => {
         dest.onclick = () => navigate(dest.dataset.view);
     });
+
+    async function loadRiskConfig() {
+        try {
+            const res = await fetch('/api/admin/config');
+            const config = await res.json();
+            if (config.risk) {
+                document.getElementById('conf-total-capital').value = config.risk.total_capital;
+                document.getElementById('conf-max-loss').value = config.risk.max_daily_loss_pct;
+                document.getElementById('conf-risk-trade').value = config.risk.risk_per_trade_pct;
+            }
+            if (config.strategy) {
+                document.getElementById('conf-min-score').value = config.strategy.min_confidence_score;
+            }
+        } catch (e) { console.error("Error loading risk config", e); }
+    }
+
+    const saveRiskBtn = document.getElementById('save-risk-btn');
+    if (saveRiskBtn) {
+        saveRiskBtn.onclick = async () => {
+            try {
+                const res = await fetch('/api/admin/config');
+                const config = await res.json();
+                
+                config.risk.total_capital = parseFloat(document.getElementById('conf-total-capital').value);
+                config.risk.max_daily_loss_pct = parseFloat(document.getElementById('conf-max-loss').value);
+                config.risk.risk_per_trade_pct = parseFloat(document.getElementById('conf-risk-trade').value);
+                config.strategy.min_confidence_score = parseInt(document.getElementById('conf-min-score').value);
+
+                const saveRes = await fetch('/api/admin/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await saveRes.json();
+                if (result.success) {
+                    alert("Risk controls updated successfully!");
+                }
+            } catch (e) { alert("Failed to save risk config"); }
+        };
+    }
 
     // --- AUTH ---
     const authOverlay = document.getElementById('auth-overlay');

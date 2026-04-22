@@ -471,6 +471,26 @@ def reload_config():
         return jsonify({'success': True})
     return jsonify({'success': False})
 
+@app.route('/api/admin/config', methods=['GET'])
+@admin_required
+def get_full_config():
+    if os.path.exists('config.json'):
+        with open('config.json', 'r') as f:
+            return jsonify(json.load(f))
+    return jsonify({})
+
+@app.route('/api/admin/config', methods=['POST'])
+@admin_required
+def update_full_config():
+    new_config = request.json
+    with open('config.json', 'w') as f:
+        json.dump(new_config, f, indent=4)
+    
+    if hasattr(app, 'trading_engine'):
+        app.trading_engine.risk_manager.config = new_config
+        
+    return jsonify({'success': True})
+
 @app.route('/api/shutdown', methods=['POST'])
 @admin_required
 def shutdown():

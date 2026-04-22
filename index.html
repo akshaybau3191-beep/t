@@ -176,6 +176,29 @@
         <!-- Settings View -->
         <main id="view-config" class="view">
             <div class="m3-card">
+                <div class="m3-card-title">Risk & Strategy Controls</div>
+                <div class="m3-input-group">
+                    <label>Total Capital (₹)</label>
+                    <input type="number" id="conf-total-capital" class="m3-input">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="m3-input-group">
+                        <label>Daily Loss (%)</label>
+                        <input type="number" id="conf-max-loss" class="m3-input">
+                    </div>
+                    <div class="m3-input-group">
+                        <label>Risk/Trade (%)</label>
+                        <input type="number" id="conf-risk-trade" class="m3-input">
+                    </div>
+                </div>
+                <div class="m3-input-group">
+                    <label>Min Signal Confidence (0-100)</label>
+                    <input type="number" id="conf-min-score" class="m3-input">
+                </div>
+                <button id="save-risk-btn" class="m3-btn">Save Risk Controls</button>
+            </div>
+
+            <div class="m3-card">
                 <div class="m3-card-title">Broker Configuration</div>
                 <div class="m3-input-group">
                     <label>API Key</label>
