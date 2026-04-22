@@ -46,6 +46,23 @@ def init_db():
         with app.app_context():
             print(f"[*] Checking/Creating database tables...")
             db.create_all()
+            
+            # Simple Migration: Add starting_capital to angel_config if missing
+            try:
+                import sqlite3
+                db_path = os.path.join(BASE_DIR, "trading.db")
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(angel_config)")
+                columns = [c[1] for c in cursor.fetchall()]
+                if 'starting_capital' not in columns:
+                    print("[*] Migrating database: Adding 'starting_capital' to 'angel_config'...")
+                    cursor.execute("ALTER TABLE angel_config ADD COLUMN starting_capital FLOAT DEFAULT 100000.0")
+                    conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"[!] Migration Error: {e}")
+
             if not db.session.query(User).filter_by(username='admin').first():
                 admin_pass = os.getenv('ADMIN_PASSWORD', 'admin123')
                 admin = User(username='admin', password_hash=generate_password_hash(admin_pass), role='admin', is_active=True)
