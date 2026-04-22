@@ -36,13 +36,13 @@ class PythonTradingEngine:
             'NIFTY': '99926000', 
             'BANKNIFTY': '99926009',
             'FINNIFTY': '99926037',
-            'MIDCPNIFTY': '99926017'
+            'NIFTYMIDCAP100': '99926011'
         }
         self.intervals = {
             'NIFTY': 50,
             'BANKNIFTY': 100,
             'FINNIFTY': 50,
-            'MIDCPNIFTY': 25
+            'NIFTYMIDCAP100': 100 # Nifty Midcap 100 has 100 point intervals for options if they exist
         }
         self.weights = {'trend': 25, 'momentum': 15, 'rsi': 20, 'macd': 15, 'volatility': 15, 'breakout': 10}
         self.last_analysis = {} # Cache for UI
