@@ -6,6 +6,7 @@
     <title>Elite Trader | Premium Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
     <!-- Auth Scrim -->
@@ -84,6 +85,25 @@
                     <p style="text-align:center; padding:10px; font-size:12px; color:var(--md-sys-color-on-surface-variant);">No active positions</p>
                 </div>
             </div>
+            <div class="m3-card">
+                <div class="m3-card-title">Market Analysis</div>
+                <div id="chart-controls" style="margin-bottom:15px; display:flex; gap:10px;">
+                    <button class="m3-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="changeChartIndex('NIFTY')">NIFTY</button>
+                    <button class="m3-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="changeChartIndex('BANKNIFTY')">BANK</button>
+                    <button class="m3-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="changeChartIndex('MIDCPNIFTY')">MIDCAP</button>
+                </div>
+                <div id="tv-chart" style="height:300px; width:100%; border-radius:12px; overflow:hidden; background:#000;"></div>
+                <div id="strategy-score-card" style="margin-top:15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:14px; font-weight:700;">Strategy Score</span>
+                        <span id="strategy-score-val" style="font-size:18px; font-weight:700; color:var(--accent);">0%</span>
+                    </div>
+                    <div id="score-details" style="font-size:11px; color:var(--md-sys-color-on-surface-variant); margin-top:5px;">
+                        Scanning market for signals...
+                    </div>
+                </div>
+            </div>
+
             <div class="m3-card">
                 <div class="m3-card-title">Market Indices</div>
                 <div id="indices-container">

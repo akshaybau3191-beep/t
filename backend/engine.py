@@ -1,5 +1,6 @@
-import time
 import pyotp
+import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta, date, timezone
 from SmartApi import SmartConnect
 from backend.models import db, User, AngelConfig
@@ -42,7 +43,8 @@ class PythonTradingEngine:
             'FINNIFTY': 50,
             'MIDCPNIFTY': 25
         }
-        self.weights = {'trend': 30, 'momentum': 20, 'atr': 15, 'volume': 20, 'breakout': 15}
+        self.weights = {'trend': 25, 'momentum': 15, 'rsi': 20, 'macd': 15, 'volatility': 15, 'breakout': 10}
+        self.last_analysis = {} # Cache for UI
     
     def is_market_open(self):
         now_utc = datetime.now(timezone.utc)
@@ -109,38 +111,103 @@ class PythonTradingEngine:
                     candles = hist_resp['data']
                     if len(candles) < 50: continue
                     
-                    closes = [float(c[4]) for c in candles]
-                    ema21 = sum(closes[-21:]) / 21
-                    ema50 = sum(closes[-50:]) / 50
-                    momentum = ((ltp - closes[-10]) / closes[-10]) * 100
+                    df = pd.DataFrame(candles, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+                    df['close'] = df['close'].astype(float)
                     
-                    data = {
+                    # 3. Advanced Indicators
+                    df['ema21'] = df['close'].ewm(span=21, adjust=False).mean()
+                    df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
+                    
+                    # RSI
+                    delta = df['close'].diff()
+                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                    df['rsi'] = 100 - (100 / (1 + (gain / loss)))
+                    
+                    # MACD
+                    exp12 = df['close'].ewm(span=12, adjust=False).mean()
+                    exp26 = df['close'].ewm(span=26, adjust=False).mean()
+                    df['macd'] = exp12 - exp26
+                    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+                    
+                    # Bollinger Bands
+                    df['sma20'] = df['close'].rolling(window=20).mean()
+                    df['std20'] = df['close'].rolling(window=20).std()
+                    df['bb_upper'] = df['sma20'] + (df['std20'] * 2)
+                    df['bb_lower'] = df['sma20'] - (df['std20'] * 2)
+
+                    last = df.iloc[-1]
+                    prev = df.iloc[-2]
+                    
+                    analysis = {
                         'price': ltp,
-                        'ema21': ema21,
-                        'ema50': ema50,
-                        'momentum': momentum,
-                        'atrRatio': 1.5, # Placeholder or calculate ATR
-                        'volumeRatio': 1.0, 
-                        'isBreakout': ltp > max(closes[-20:-1])
+                        'ema21': last['ema21'],
+                        'ema50': last['ema50'],
+                        'rsi': last['rsi'],
+                        'macd': last['macd'],
+                        'macd_signal': last['macd_signal'],
+                        'bb_upper': last['bb_upper'],
+                        'bb_lower': last['bb_lower'],
+                        'isBreakout': ltp > df['high'].iloc[-20:-1].max(),
+                        'trend_score': 0,
+                        'momentum_score': 0,
+                        'rsi_score': 0,
+                        'macd_score': 0,
+                        'vol_score': 0,
+                        'breakout_score': 0
                     }
                     
-                    if self.score_index(data) >= 75:
-                        # Determine signal: BUY (CE) or SELL (PE)
-                        # Based on trend: if ema21 > ema50 -> CE, else -> PE
-                        signal = 'CE' if data['ema21'] > data['ema50'] else 'PE'
-                        self.dispatch_trade(name, data, signal)
+                    score = self.calculate_total_score(analysis)
+                    analysis['total_score'] = score
+                    self.last_analysis[name] = analysis
+
+                    if score >= 75:
+                        signal = 'CE' if last['ema21'] > last['ema50'] else 'PE'
+                        self.dispatch_trade(name, analysis, signal)
             except Exception as e:
                 print(f"[!] Scanning Error for {name}: {e}")
 
-    def score_index(self, data):
+    def calculate_total_score(self, a):
         score = 0
-        if data['ema21'] > data['ema50'] and data['price'] > data['ema21']: score += self.weights['trend']
-        elif data['ema21'] < data['ema50'] and data['price'] < data['ema21']: score += self.weights['trend']
-        if data['momentum'] > 70 or data['momentum'] < 30: score += self.weights['momentum']
-        if data['atrRatio'] > 1.2: score += self.weights['atr']
-        if data['volumeRatio'] > 1.8: score += self.weights['volume']
-        if data['isBreakout']: score += self.weights['breakout']
+        # Trend
+        if a['ema21'] > a['ema50'] and a['price'] > a['ema21']: a['trend_score'] = self.weights['trend']
+        elif a['ema21'] < a['ema50'] and a['price'] < a['ema21']: a['trend_score'] = self.weights['trend']
+        
+        # RSI
+        if 40 < a['rsi'] < 60: a['rsi_score'] = self.weights['rsi'] # Neutral-Strong
+        elif a['rsi'] > 70 or a['rsi'] < 30: a['rsi_score'] = self.weights['rsi'] / 2 # Overextended
+        
+        # MACD
+        if a['macd'] > a['macd_signal']: a['macd_score'] = self.weights['macd']
+        
+        # Volatility (Inside BB)
+        if a['bb_lower'] < a['price'] < a['bb_upper']: a['vol_score'] = self.weights['volatility']
+        
+        # Breakout
+        if a['isBreakout']: a['breakout_score'] = self.weights['breakout']
+        
+        score = a['trend_score'] + a['rsi_score'] + a['macd_score'] + a['vol_score'] + a['breakout_score']
         return score
+
+    def get_market_analysis(self, index):
+        return self.last_analysis.get(index, {})
+
+    def get_candle_data(self, smart_api, index):
+        token = self.indices.get(index)
+        to_date = (datetime.now() + timedelta(hours=5, minutes=30)).strftime('%Y-%m-%d %H:%M')
+        from_date = (datetime.now() + timedelta(hours=5, minutes=30) - timedelta(days=2)).strftime('%Y-%m-%d %H:%M')
+        
+        params = {
+            "exchange": "NSE",
+            "symboltoken": token,
+            "interval": "FIFTEEN_MINUTE",
+            "fromdate": from_date,
+            "todate": to_date
+        }
+        resp = smart_api.getCandleData(params)
+        if resp.get('status') and resp.get('data'):
+            return resp['data']
+        return []
 
     def perform_daily_auto_login(self):
         with self.app.app_context():

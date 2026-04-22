@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(() => {
             updateStats();
             updateTrades();
+            if (activeChartIndex) updateChart();
         }, 5000);
     }
 
@@ -350,6 +351,78 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
     checkSession();
+
+    // --- CHARTING ---
+    let chart = null;
+    let candleSeries = null;
+    let ema21Series = null;
+    let ema50Series = null;
+    let activeChartIndex = 'NIFTY';
+
+    function initChart() {
+        const container = document.getElementById('tv-chart');
+        if (!container) return;
+
+        chart = LightweightCharts.createChart(container, {
+            layout: {
+                backgroundColor: '#131722',
+                textColor: '#d1d4dc',
+            },
+            grid: {
+                vertLines: { color: '#2b2b43' },
+                horzLines: { color: '#2b2b43' },
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+            },
+        });
+
+        candleSeries = chart.addCandlestickSeries();
+        ema21Series = chart.addLineSeries({ color: '#2196F3', lineWidth: 1 });
+        ema50Series = chart.addLineSeries({ color: '#FF9800', lineWidth: 1 });
+
+        updateChart();
+    }
+
+    async function updateChart() {
+        try {
+            const res = await fetch(`/api/market/candles/${activeChartIndex}`);
+            const data = await res.json();
+            
+            if (data.candles && data.candles.length > 0) {
+                const formatted = data.candles.map(c => ({
+                    time: new Date(c[0]).getTime() / 1000,
+                    open: parseFloat(c[1]),
+                    high: parseFloat(c[2]),
+                    low: parseFloat(c[3]),
+                    close: parseFloat(c[4])
+                }));
+                candleSeries.setData(formatted);
+
+                // Add EMA data if available in analysis or calculate locally
+                // For now, let's just focus on candles. EMA can be added later.
+            }
+
+            if (data.analysis) {
+                const a = data.analysis;
+                document.getElementById('strategy-score-val').textContent = `${a.total_score}%`;
+                document.getElementById('strategy-score-val').style.color = a.total_score >= 75 ? 'var(--success)' : 'var(--accent)';
+                
+                document.getElementById('score-details').innerHTML = `
+                    Trend: ${a.trend_score} | RSI: ${a.rsi_score.toFixed(1)} | MACD: ${a.macd_score} | Vol: ${a.vol_score} | Breakout: ${a.breakout_score}
+                `;
+            }
+        } catch (e) { console.error("Chart error:", e); }
+    }
+
+    window.changeChartIndex = (index) => {
+        activeChartIndex = index;
+        updateChart();
+    };
+
+    // Initialize chart if we are on home view
+    setTimeout(initChart, 1000);
 });
 
 async function updateIndices() {

@@ -247,6 +247,23 @@ def market_indices():
             continue
     return jsonify(result)
 
+@app.route('/api/market/candles/<index>', methods=['GET'])
+@login_required
+def market_candles(index):
+    admin_user = db.session.query(User).filter_by(role='admin').first()
+    if not admin_user or admin_user.id not in user_sessions:
+        return jsonify({'success': False, 'message': 'Engine not logged in'}), 503
+    
+    smart_api = user_sessions[admin_user.id]
+    engine = PythonTradingEngine(app)
+    data = engine.get_candle_data(smart_api, index)
+    analysis = engine.get_market_analysis(index)
+    
+    return jsonify({
+        'candles': data,
+        'analysis': analysis
+    })
+
 @app.route('/api/user/stats', methods=['GET'])
 @login_required
 def user_stats():
