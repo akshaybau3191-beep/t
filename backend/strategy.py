@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 class StrategyManager:
     def __init__(self, risk_manager):
         self.risk_manager = risk_manager
@@ -29,20 +32,29 @@ class StrategyManager:
         strength = 0
         reasons = []
 
-        # 2. Strategy Logic: EMA/VWAP Alignment
-        if last['close'] > last['ema9'] > last['ema21'] and last['close'] > last['vwap']:
-            strength += 50
-            reasons.append("EMA/VWAP Bullish Alignment")
+        # 2. Strategy Logic: Trend & Momentum Scoring
+        if last['close'] > last['ema9']:
+            strength += 20
+            reasons.append("Above EMA9")
+            
+        if last['ema9'] > last['ema21']:
+            strength += 20
+            reasons.append("Bullish EMA Cross")
+            
+        if last['close'] > last['vwap']:
+            strength += 20
+            reasons.append("Above VWAP")
         
         # 3. Orderbook Bias
-        if total_buy_qty > total_sell_qty * 1.3:
-            strength += 30
-            reasons.append("Strong Orderbook Buy Bias")
-            
-        # 4. Volume Spike
-        if volume > 10000:
+        if total_buy_qty > total_sell_qty * 1.1:
             strength += 20
-            reasons.append("Volume Breakout")
+            reasons.append("Orderbook Buy Bias")
+            
+        # 4. Volume Trend
+        avg_vol = df['volume'].tail(5).mean()
+        if last['volume'] > avg_vol * 1.2:
+            strength += 20
+            reasons.append("Volume Surge")
 
         return {
             'price': float(data.get('ltp', 0)),

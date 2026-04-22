@@ -168,6 +168,9 @@ class PythonTradingEngine:
                             admin = db.session.query(User).filter_by(role='admin').first()
                             min_score = admin.config.min_confidence_score if admin and admin.config else 75
                         
+                        # Debug log to show scanner is active
+                        print(f"[*] Scanning {opt_info['symbol']}: Strength {analysis['signal_strength']}% | Required: {min_score}%")
+                        
                         if analysis['signal_strength'] >= min_score:
                             self.current_task = f"Signal Found: {opt_info['symbol']}"
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
