@@ -16,6 +16,7 @@ class AngelConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     api_key = db.Column(db.String(100))
+    api_secret = db.Column(db.String(100))
     client_code = db.Column(db.String(50))
     password = db.Column(db.String(100))
     totp_secret = db.Column(db.String(100))

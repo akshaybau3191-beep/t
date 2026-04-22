@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const config = await res.json();
             if (config) {
                 if (document.getElementById('api-key')) document.getElementById('api-key').value = config.api_key || '';
+                if (document.getElementById('api-secret')) document.getElementById('api-secret').value = config.api_secret || '';
                 if (document.getElementById('client-code')) document.getElementById('client-code').value = config.client_code || '';
                 if (document.getElementById('trading-pass')) document.getElementById('trading-pass').value = config.password || '';
                 if (document.getElementById('totp-secret')) document.getElementById('totp-secret').value = config.totp_secret || '';
@@ -196,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('save-config-btn').onclick = async () => {
         const config = {
             api_key: document.getElementById('api-key').value,
+            api_secret: document.getElementById('api-secret').value,
             client_code: document.getElementById('client-code').value,
             password: document.getElementById('trading-pass').value,
             totp_secret: document.getElementById('totp-secret').value

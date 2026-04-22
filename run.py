@@ -191,6 +191,7 @@ def user_broker_config():
             user.config = AngelConfig(user_id=user.id)
             db.session.add(user.config)
         user.config.api_key = data.get('api_key')
+        user.config.api_secret = data.get('api_secret')
         user.config.client_code = data.get('client_code')
         user.config.password = data.get('password')
         user.config.totp_secret = data.get('totp_secret')
@@ -209,7 +210,8 @@ def user_broker_config():
         })
     
     return jsonify({
-        'api_key': user.config.api_key, 'client_code': user.config.client_code, 
+        'api_key': user.config.api_key, 'api_secret': user.config.api_secret,
+        'client_code': user.config.client_code, 
         'password': user.config.password, 'totp_secret': user.config.totp_secret,
         'trading_mode': user.config.trading_mode,
         'callback_url': callback_url, 'postback_url': postback_url, 'static_ip': static_ip
