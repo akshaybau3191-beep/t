@@ -147,7 +147,7 @@ class PythonTradingEngine:
                         
                         if analysis['signal_strength'] >= 80:
                             self.current_task = f"Signal Found: {opt_info['symbol']}"
-                            self.dispatch_trade(name, analysis, opt_info['type']) # opt_info['type'] is CE or PE
+                            self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
             except Exception as e:
                 print(f"[!] Advanced Scanning Error for {name}: {e}")
 
@@ -235,13 +235,13 @@ class PythonTradingEngine:
             for user in active_users:
                 login_angel_one(user, self.app)
 
-    def dispatch_trade(self, index, data, signal):
+    def dispatch_trade(self, index, data, signal, real_symbol, real_token):
         with self.app.app_context():
             from backend.models import User
             active_users = db.session.query(User).filter_by(is_active=True).all()
             for user in active_users:
                 if user.is_active and user.last_login_date == date.today():
-                    self.execute_for_user(user, index, data, signal)
+                    self.execute_for_user(user, index, data, signal, real_symbol, real_token)
 
     def get_option_strike(self, index, ltp, signal):
         interval = self.intervals.get(index, 50)
@@ -259,44 +259,30 @@ class PythonTradingEngine:
             'OTM': int(otm)
         }
 
-    def execute_for_user(self, user, index, data, signal):
+    def execute_for_user(self, user, index, data, signal, real_symbol, real_token):
         if user.id not in user_sessions: return
         from backend.models import db, Position
-        
-        # Calculate strikes
-        strikes = self.get_option_strike(index, data['price'], signal)
-        # Select strike (default to ATM for now, can be optimized)
-        selected_strike = strikes['ATM']
-        
-        # Generate symbolic name for logging/sim (In real, search for token)
-        # NIFTY24APR22500CE
-        expiry_str = "24APR" # Placeholder, in real should be dynamic
-        option_symbol = f"{index}{expiry_str}{selected_strike}{signal}"
-        
-        # In real scenario, search for token
-        # For now, we use a placeholder or the index token for paper
-        token = f"OPT-{index}-{selected_strike}-{signal}" 
         
         # Prepare strategy snapshot
         snapshot = json.dumps(data)
         
-        pos = db.session.query(Position).filter_by(user_id=user.id, token=token).first()
+        pos = db.session.query(Position).filter_by(user_id=user.id, token=real_token).first()
         if pos and pos.quantity != 0:
             return 
             
         mode = user.config.trading_mode
         if mode == 'LIVE':
-            print(f"[*] LIVE Trade Execution for {user.username} on {option_symbol}")
-            # order_params = { ... exchange: 'NFO', tradingsymbol: option_symbol, ... }
+            print(f"[*] LIVE Trade Execution for {user.username} on {real_symbol}")
+            # order_params = { ... exchange: 'NFO', tradingsymbol: real_symbol, ... }
         else:
-            print(f"[*] PAPER Trade Simulation for {user.username} on {option_symbol}")
+            print(f"[*] PAPER Trade Simulation for {user.username} on {real_symbol}")
             mock_trade = {
                 'orderid': f'MOCK-{int(time.time())}',
-                'tradingsymbol': option_symbol,
-                'symboltoken': token,
+                'tradingsymbol': real_symbol,
+                'symboltoken': real_token,
                 'transactiontype': 'BUY', 
                 'quantity': '50',
-                'price': '100.0', # Placeholder for option premium
+                'price': str(data['price']), 
                 'status': 'COMPLETE',
                 'strategy_snapshot': snapshot
             }
