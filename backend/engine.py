@@ -63,10 +63,14 @@ class PythonTradingEngine:
     def log_to_file(self, msg):
         try:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            log_path = os.path.join(self.app.root_path, "engine.log")
+            # Use absolute path to ensure logs are always in the project root
+            log_path = "/home/ubuntu/Ai-Bot-Trader/engine.log"
+            # Fallback for development/different paths
+            if not os.path.exists("/home/ubuntu"):
+                log_path = os.path.join(self.app.root_path, "engine.log")
+                
             with open(log_path, 'a') as f:
                 f.write(f"[{timestamp}] {msg}\n")
-            # Also write to stdout for journalctl logs
             print(f"[{timestamp}] {msg}", flush=True)
         except Exception as e:
             print(f"Log Error: {e}")

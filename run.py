@@ -115,15 +115,22 @@ def init_db():
     except Exception as e:
         print(f"[!] Database Initialization Error: {e}")
 
+_scanner_thread = None
+
 def start_scanner_locked():
-    """Start or Restart the scanner thread."""
+    """Start or Restart the scanner thread safely (Singleton)."""
+    global _scanner_thread
     try:
-        # If an old engine exists, try to stop it (optional)
+        # Check if already running
+        if _scanner_thread and _scanner_thread.is_alive():
+            print("[*] AI Engine already running. Skipping duplicate start.")
+            return
+
         engine = PythonTradingEngine(app)
         app.trading_engine = engine
-        thread = threading.Thread(target=engine.run_scanner, daemon=True)
-        thread.start()
-        print("[*] AI Engine Scanner started/restarted successfully.")
+        _scanner_thread = threading.Thread(target=engine.run_scanner, daemon=True)
+        _scanner_thread.start()
+        print("[*] AI Engine Scanner started successfully.")
         engine.log_to_file(">>> AI Engine Scanner Booting Up...")
     except Exception as e:
         print(f"[!] Engine Start Error: {e}")
@@ -324,10 +331,12 @@ def toggle_execution_mode():
 def get_engine_logs():
     # Return last 50 lines of logs
     try:
-        # We'll write engine logs to a specific file
-        log_path = os.path.join(BASE_DIR, "engine.log")
+        log_path = "/home/ubuntu/Ai-Bot-Trader/engine.log"
+        if not os.path.exists("/home/ubuntu"):
+            log_path = os.path.join(BASE_DIR, "engine.log")
+            
         if not os.path.exists(log_path):
-            return jsonify([])
+            return jsonify(["[i] Waiting for engine to start..."])
         
         with open(log_path, 'r') as f:
             lines = f.readlines()
