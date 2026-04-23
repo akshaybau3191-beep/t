@@ -63,17 +63,20 @@ class PythonTradingEngine:
     def log_to_file(self, msg):
         try:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            # Use absolute path to ensure logs are always in the project root
-            log_path = "/home/ubuntu/Ai-Bot-Trader/engine.log"
-            # Fallback for development/different paths
-            if not os.path.exists("/home/ubuntu"):
-                log_path = os.path.join(self.app.root_path, "engine.log")
-                
+            # Find the absolute root directory (Ai-Bot-Trader/)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            log_path = os.path.join(base_dir, "engine.log")
+            
             with open(log_path, 'a') as f:
                 f.write(f"[{timestamp}] {msg}\n")
             print(f"[{timestamp}] {msg}", flush=True)
         except Exception as e:
-            print(f"Log Error: {e}")
+            # Fallback to current directory if absolute fails
+            try:
+                with open("engine.log", "a") as f:
+                    f.write(f"[{timestamp}] FALLBACK: {msg}\n")
+            except:
+                print(f"CRITICAL LOG ERROR: {e}")
 
     def is_market_open(self):
         if os.getenv('DEBUG_SCAN') == 'true': return True

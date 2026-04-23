@@ -320,18 +320,15 @@ def toggle_execution_mode():
 def get_engine_logs():
     # Return last 50 lines of logs
     try:
-        log_path = "/home/ubuntu/Ai-Bot-Trader/engine.log"
-        if not os.path.exists("/home/ubuntu"):
-            log_path = os.path.join(BASE_DIR, "engine.log")
-            
+        log_path = os.path.join(BASE_DIR, "engine.log")
         if not os.path.exists(log_path):
-            return jsonify(["[i] Waiting for engine to start..."])
+            return jsonify(["[i] Waiting for AI Engine to initialize..."])
         
         with open(log_path, 'r') as f:
             lines = f.readlines()
             return jsonify(lines[-50:])
-    except:
-        return jsonify(["[!] Could not read engine logs"])
+    except Exception as e:
+        return jsonify([f"[!] Error reading logs: {str(e)}"])
 
 @app.route('/api/user/stats', methods=['GET'])
 @login_required
