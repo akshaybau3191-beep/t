@@ -51,8 +51,8 @@ class PythonTradingEngine:
             for cand in candidates:
                 try:
                     # A. Fetch Full Market Data (OI, Volume, Orderbook)
-                    market_data = obj.marketData("FULL", [{"exchangeCode": "NFO", "symbolToken": cand['token']}])
-                    if not market_data.get('status') or not market_data['data']['fetched']: continue
+                    market_data = obj.getMarketData("FULL", {"NFO": [cand['token']]})
+                    if not market_data.get('status') or not market_data['data']: continue
                     data = market_data['data']['fetched'][0]
                     
                     # B. Fetch Historical Data (1m and 5m)
@@ -234,13 +234,21 @@ def login_angel_one(user, app):
     import pyotp
     try:
         conf = user.config
+        if not conf or not conf.api_key:
+            print(f"[!] {user.username} has no AngelConfig.")
+            return False
         obj = SmartConnect(api_key=conf.api_key)
-        data = obj.generateSession(conf.client_code, conf.password, pyotp.TOTP(conf.totp_secret).now())
+        totp = pyotp.TOTP(conf.totp_secret.replace(" ", "")).now()
+        data = obj.generateSession(conf.client_code, conf.password, totp)
         if data['status']:
             from backend.engine import user_sessions
             user_sessions[user.id] = obj
+            print(f"[*] {user.username} Login Successful!")
             return True
-    except: pass
+        else:
+            print(f"[!] {user.username} Login Failed: {data.get('message')}")
+    except Exception as e:
+        print(f"[!] {user.username} Login Error: {e}")
     return False
 
 def update_position_from_trade(user_id, trade_data, app, mode='PAPER'):
