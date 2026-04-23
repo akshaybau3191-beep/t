@@ -1,82 +1,100 @@
 import pandas as pd
 import numpy as np
 
-class StrategyManager:
+class EliteStrategyManager:
     def __init__(self, risk_manager):
         self.risk_manager = risk_manager
 
-    def analyze_option(self, candles, data, info, index_ltp, logger=None):
-        """Master AI Strategy: Price Action, OI, Volume & Volatility"""
-        strength = 0
-        reasons = []
+    def analyze(self, symbol, ltp_data, candles_1m, candles_5m, logger=None):
+        """Elite Consensus Scoring: 1m/5m Alignment + OI + Orderbook"""
+        score = 0
+        factors = []
         
         def log(msg):
-            if logger: logger(f"   [AI-LOG] {msg}")
+            if logger: logger(f"   [STRATEGY] {msg}")
 
-        # 1. Base Data Extraction
-        oi = int(data.get('oi', 0))
-        oi_change = int(data.get('oi_change', 0)) # Angel provides this in FULL data
-        volume = int(data.get('volume', 0))
-        buy_qty = int(data.get('totalBuyQty', 0))
-        sell_qty = int(data.get('totalSellQty', 0))
-        ltp = float(data.get('ltp', 0))
-
-        # 2. Price Action & Trend Analysis
-        if candles and len(candles) > 20:
-            df = pd.DataFrame(candles, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
-            for col in ['open', 'high', 'low', 'close', 'volume']:
-                df[col] = df[col].astype(float)
+        # 1. PRICE ACTION PILLAR (40 Points)
+        # Use 1m for entry precision and 5m for trend confirmation
+        if candles_1m and len(candles_1m) > 20 and candles_5m and len(candles_5m) > 10:
+            df1 = self._prepare_df(candles_1m)
+            df5 = self._prepare_df(candles_5m)
             
-            # Indicators
-            df['ema9'] = df['close'].ewm(span=9, adjust=False).mean()
-            df['ema21'] = df['close'].ewm(span=21, adjust=False).mean()
-            tp = (df['high'] + df['low'] + df['close']) / 3
-            df['vwap'] = (tp * df['volume']).cumsum() / df['volume'].cumsum()
+            # A. Trend Alignment (20 pts)
+            trend_1m = df1['close'].iloc[-1] > df1['ema21'].iloc[-1]
+            trend_5m = df5['close'].iloc[-1] > df5['ema21'].iloc[-1]
+            if trend_1m and trend_5m:
+                score += 20
+                factors.append("Multi-TF Trend: 1m & 5m Alignment (Bullish)")
             
-            last = df.iloc[-1]
-            prev = df.iloc[-2]
-
-            # A. Trend Pillar (20 pts)
-            if last['close'] > last['ema9'] and last['ema9'] > last['ema21']:
-                strength += 20
-                log("Trend: Strong Bullish Alignment (Price > EMA9 > EMA21)")
+            # B. Momentum / RSI (10 pts)
+            rsi = self._calculate_rsi(df1['close'])
+            if 55 < rsi < 70:
+                score += 10
+                factors.append(f"Momentum: RSI at {int(rsi)} (Healthy Bullish)")
             
-            # B. Price Action / Candlesticks (20 pts)
-            if last['close'] > prev['high']: # Bullish Breakout
-                strength += 10
-                log("Price Action: Recent High Breakout detected")
-            if last['close'] > last['open'] and prev['close'] < prev['open'] and last['close'] > prev['open']:
-                strength += 10
-                log("Candlestick: Bullish Engulfing Pattern found")
+            # C. VWAP Support (10 pts)
+            vwap = self._calculate_vwap(df1)
+            if df1['close'].iloc[-1] > vwap:
+                score += 10
+                factors.append("Support: Price above VWAP")
 
-            # C. Volume Pillar (15 pts)
-            avg_vol = df['volume'].tail(10).mean()
-            if last['volume'] > avg_vol * 1.8:
-                strength += 15
-                log(f"Volume: Institutional Surge ({int(last['volume'])} vs {int(avg_vol)} avg)")
+        # 2. DATA PILLAR: OI & VOLUME (30 Points)
+        volume = float(ltp_data.get('volume', 0))
+        oi = float(ltp_data.get('oi', 0))
         
-        # 3. OI Pillar (20 pts)
-        if oi_change > 0:
-            strength += 10
-            log(f"OI: Positive buildup (+{oi_change} contracts)")
-        if buy_qty > sell_qty * 1.5:
-            strength += 10
-            log("Orderbook: Heavy Buy Pressure")
-
-        # 4. Volatility Pillar (SL/TP Calculation)
-        # Calculate Dynamic SL based on 2% risk or ATR (if available)
-        sl_pct = 0.10 # Default 10%
-        tp_pct = 0.20 # Default 20%
+        # Volume Surge detection
+        if candles_1m:
+            avg_vol = df1['volume'].tail(10).mean()
+            if volume > avg_vol * 2.0:
+                score += 15
+                factors.append("Volume: Institutional Surge detected")
         
-        final_strength = min(100, strength)
-        signal = 'BUY' if final_strength >= 50 else 'WAIT'
+        # OI Accumulation (Angel One gives current OI)
+        # In a real setup, we'd compare this with previous tick OI
+        if oi > 0:
+            score += 15 # Baseline for presence of OI
+            factors.append(f"Liquidity: Active OI at {int(oi)}")
 
+        # 3. PRESSURE PILLAR: ORDERBOOK (30 Points)
+        buy_qty = float(ltp_data.get('totalBuyQty', 0))
+        sell_qty = float(ltp_data.get('totalSellQty', 0))
+        
+        if sell_qty > 0:
+            ratio = buy_qty / sell_qty
+            if ratio > 1.5:
+                score += 20
+                factors.append(f"Pressure: Strong Demand (Buy/Sell Ratio {ratio:.1f}x)")
+            elif ratio > 2.5:
+                score += 30
+                factors.append("Pressure: EXTREME Demand (Breakout Imminent)")
+
+        # FINAL VERDICT
+        status = "REJECT"
+        if score >= 85: status = "STRONG_BUY"
+        elif score >= 70: status = "BUY"
+        
         return {
-            'price': ltp,
-            'oi': oi,
-            'signal_strength': final_strength,
-            'signal': signal,
-            'sl': round(ltp * (1 - sl_pct), 2),
-            'tp': round(ltp * (1 + tp_pct), 2),
-            'reason': ", ".join(reasons)
+            'score': score,
+            'status': status,
+            'factors': factors,
+            'ltp': float(ltp_data.get('ltp', 0))
         }
+
+    def _prepare_df(self, candles):
+        df = pd.DataFrame(candles, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        df['ema9'] = df['close'].ewm(span=9, adjust=False).mean()
+        df['ema21'] = df['close'].ewm(span=21, adjust=False).mean()
+        return df
+
+    def _calculate_rsi(self, series, period=14):
+        delta = series.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs)).iloc[-1]
+
+    def _calculate_vwap(self, df):
+        tp = (df['high'] + df['low'] + df['close']) / 3
+        return (tp * df['volume']).cumsum() / df['volume'].cumsum().iloc[-1]

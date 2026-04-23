@@ -135,25 +135,95 @@ class PythonTradingEngine:
                 print(f"[!] Scanner Loop Error: {e}")
                 time.sleep(10)
 
-    def scan_market(self, smart_api):
-        # Focus on NIFTY only as per user request
-        indices_to_scan = ['NIFTY']
+    def scan_market(self, obj):
+        """Elite Multi-Factor Scanning Loop: Individual Candidate Study"""
+        from backend.symbols import SymbolManager
+        from backend.strategy import EliteStrategyManager
+        from backend.models import db, Signal
+        import json
         
-        for name in indices_to_scan:
-            try:
-                self.current_task = f"Fetching {name} LTP"
-                token = self.indices.get(name)
-                ltp_resp = smart_api.ltpData("NSE", name, token)
-                if not ltp_resp.get('status'): continue
-                ltp = float(ltp_resp['data']['ltp'])
-
-                self.log_to_file(f">>> Scanning {name} Options (LTP: {ltp})...")
-                options = self.symbol_manager.get_options(name, ltp, range_pts=400)
-                self.scanned_count = len(options)
-                
-                if not options:
-                    self.log_to_file(f"[!] No active {name} options found in +/- 400 range.")
+        sm = SymbolManager()
+        strategy = EliteStrategyManager(None)
+        
+        try:
+            # 1. Get Nifty LTP
+            ltp_resp = obj.ltpData("NSE", "NIFTY", "99926000") 
+            if not ltp_resp.get('status'): return
+            nifty_ltp = float(ltp_resp['data']['ltp'])
+            
+            # 2. Find +/- 400 Candidates
+            candidates = sm.get_options("NIFTY", nifty_ltp, range_pts=400)
+            if not candidates:
+                self.log_to_file(f"[!] No active NIFTY options found in +/- 400 range")
+                return
+            
+            self.log_to_file(f"🔎 Studying {len(candidates)} candidates individually...")
+            
+            for cand in candidates:
+                try:
+                    # A. Fetch Full Market Data (OI, Volume, Orderbook)
+                    market_data = obj.marketData("FULL", [{"exchangeCode": "NFO", "symbolToken": cand['token']}])
+                    if not market_data.get('status') or not market_data['data']['fetched']: continue
+                    data = market_data['data']['fetched'][0]
+                    
+                    # B. Fetch Historical Data (1m and 5m)
+                    # Use a short sleep to stay under Angel One's 3-calls-per-second limit
+                    time.sleep(0.35)
+                    hist_1m = obj.getCandleData({
+                        "exchange": "NFO", "symboltoken": cand['token'],
+                        "interval": "ONE_MINUTE",
+                        "fromdate": (datetime.now() - timedelta(minutes=60)).strftime('%Y-%m-%d %H:%M'),
+                        "todate": datetime.now().strftime('%Y-%m-%d %H:%M')
+                    })
+                    
+                    time.sleep(0.35)
+                    hist_5m = obj.getCandleData({
+                        "exchange": "NFO", "symboltoken": cand['token'],
+                        "interval": "FIVE_MINUTE",
+                        "fromdate": (datetime.now() - timedelta(minutes=200)).strftime('%Y-%m-%d %H:%M'),
+                        "todate": datetime.now().strftime('%Y-%m-%d %H:%M')
+                    })
+                    
+                    # C. Elite Quantitative Analysis
+                    analysis = strategy.analyze(
+                        cand['symbol'], data, 
+                        hist_1m.get('data', []), 
+                        hist_5m.get('data', []),
+                        logger=self.log_to_file
+                    )
+                    
+                    # D. Broadcast Signal if High Confidence Score Found
+                    if analysis['status'] in ['BUY', 'STRONG_BUY']:
+                        self.log_to_file(f"🔥 ELITE SIGNAL: {cand['symbol']} | Score: {analysis['score']} | Verdict: {analysis['status']}")
+                        with self.app.app_context():
+                            # Avoid duplicate signals for the same token in last 3 mins
+                            exists = db.session.query(Signal).filter(
+                                Signal.token == cand['token'],
+                                Signal.timestamp > datetime.now() - timedelta(minutes=3)
+                            ).first()
+                            
+                            if not exists:
+                                new_sig = Signal(
+                                    index="NIFTY",
+                                    symbol=cand['symbol'],
+                                    token=cand['token'],
+                                    type=cand['type'],
+                                    score=analysis['score'],
+                                    strategy_snapshot=json.dumps(analysis)
+                                )
+                                db.session.add(new_sig)
+                                db.session.commit()
+                            
+                except Exception as e:
+                    print(f"[!] Study Error for {cand['symbol']}: {e}")
                     continue
+                    
+            self.scanned_count += 1
+        except Exception as e:
+            self.log_to_file(f"[!] Master Scan Error: {e}")
+
+    def execute_for_user(self, user, index, analysis, type, symbol, token):
+tinue
 
                 self.log_to_file(f"[*] Found {len(options)} options. Starting Selective AI analysis...")
                 
