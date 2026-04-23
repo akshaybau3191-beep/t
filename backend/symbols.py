@@ -63,28 +63,32 @@ class SymbolManager:
 
         # 1. Pattern-Based Filtering for NIFTY
         # philosophy: NIFTY + DDMMMYY + STRIKE + CE/PE
-        relevant = [
-            s for s in self.symbols 
-            if s.get('symbol', '').startswith('NIFTY')
-            and s.get('exch_seg') == 'NFO' 
-            and s.get('instrumenttype') == 'OPTIDX'
-        ]
+        relevant = []
+        for s in self.symbols:
+            sym = s.get('symbol', '').upper()
+            if sym.startswith('NIFTY') and s.get('exch_seg') == 'NFO':
+                relevant.append(s)
         
-        all_expiries = list(set([s.get('expiry') for s in relevant if s.get('expiry')]))
-        if not all_expiries:
-            print(f"[!] CRITICAL: No NIFTY symbols found in master list!")
+        if not relevant:
+            print(f"[!] CRITICAL: No NIFTY symbols found in master list! (Checked {len(self.symbols)} total)")
             return []
 
+        # Debug: Print sample symbol to verify format
+        print(f"[*] Sample NIFTY Symbol: {relevant[0].get('symbol')} | Expiry: {relevant[0].get('expiry')}")
+        
+        all_expiries = list(set([s.get('expiry') for s in relevant if s.get('expiry')]))
         sorted_expiries = sorted(all_expiries, key=parse_expiry)
-        today = datetime.now()
-        future_expiries = [e for e in sorted_expiries if parse_expiry(e).date() >= today.date()]
+        
+        # On Expiry Day, we still want to trade current expiry until close
+        today = datetime.now().date()
+        future_expiries = [e for e in sorted_expiries if parse_expiry(e).date() >= today]
         
         if not future_expiries:
-            print(f"[!] No future expiries found for NIFTY. Found: {sorted_expiries[:3]}")
+            print(f"[!] No future expiries found for NIFTY.")
             return []
 
         current_expiry = future_expiries[0]
-        print(f"[*] Targeting Expiry: {current_expiry}")
+        print(f"[*] Targeting Expiry: {current_expiry} | Strike Range: {ltp-range_pts} to {ltp+range_pts}")
         
         # Filter by expiry and strike range
         strike_min = ltp - range_pts
@@ -94,12 +98,12 @@ class SymbolManager:
         for s in relevant:
             if s.get('expiry') == current_expiry:
                 try:
+                    # Robust Strike Parsing
                     raw_strike = float(s.get('strike', 0))
                     strike = raw_strike / 100 if raw_strike > 100000 else raw_strike
                         
                     if strike_min <= strike <= strike_max:
                         symbol = s.get('symbol', '')
-                        # Philosophy: Must contain CE or PE
                         if 'CE' in symbol or 'PE' in symbol:
                             opt_type = 'CE' if 'CE' in symbol else 'PE'
                             options.append({
