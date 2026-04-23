@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 class SymbolManager:
     def __init__(self, cache_dir='/tmp'):
         self.cache_path = os.path.join(cache_dir, 'scrip_master.json')
-        self.url = "https://margincalculator.angelbroking.com/OpenAPI_Standard/v1/OpenAPIScripMaster.json"
+        self.url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
         self.symbols = []
         self.last_update = 0
         
@@ -65,12 +65,16 @@ class SymbolManager:
         # philosophy: NIFTY + DDMMMYY + STRIKE + CE/PE
         relevant = []
         for s in self.symbols:
-            sym = s.get('symbol', '').upper()
-            if sym.startswith('NIFTY') and s.get('exch_seg') == 'NFO':
+            # Strictly NIFTY only (exclude NIFTYNXT50, etc.)
+            if s.get('name') == 'NIFTY' and s.get('exch_seg') == 'NFO':
                 relevant.append(s)
         
         if not relevant:
-            print(f"[!] CRITICAL: No NIFTY symbols found in master list! (Checked {len(self.symbols)} total)")
+            # Fallback if name field is missing: check symbol start
+            relevant = [s for s in self.symbols if s.get('symbol', '').startswith('NIFTY') and s.get('exch_seg') == 'NFO']
+            
+        if not relevant:
+            print(f"[!] CRITICAL: No NIFTY symbols found in master list!")
             return []
 
         # Debug: Print sample symbol to verify format
