@@ -34,7 +34,9 @@ def run_worker():
                     force_scan = True
                 
                 # 2. Heartbeat & Status Update
-                update_system_status("Worker Running", engine.scanned_count, "Online")
+                update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
+                if int(time.time()) % 30 == 0:
+                    engine.log_to_file("💓 Heartbeat: Worker process is healthy and scanning...")
                 
                 # 3. Market Open Check OR Forced Scan
                 if engine.is_market_open() or force_scan:
