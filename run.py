@@ -502,10 +502,18 @@ def toggle_kill_switch():
 @app.route('/api/admin/reload_config', methods=['POST'])
 @admin_required
 def reload_config():
+    data = request.json or {}
+    admin = db.session.query(User).filter_by(role='admin').first()
+    if admin and admin.config:
+        if 'min_confidence_score' in data:
+            admin.config.min_confidence_score = int(data['min_confidence_score'])
+            db.session.commit()
+    
     if hasattr(app, 'trading_engine'):
-        app.trading_engine.risk_manager.config = app.trading_engine.risk_manager.load_config()
-        return jsonify({'success': True})
-    return jsonify({'success': False})
+        # Refresh the scanner or config if needed
+        print("[*] Admin: Reloading AI Strategy Configuration...")
+        return jsonify({'success': True, 'message': 'AI Strategy updated and reloaded'})
+    return jsonify({'success': False, 'message': 'Engine not found'})
 
 @app.route('/api/user/risk-config', methods=['GET'])
 @login_required

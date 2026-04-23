@@ -5,16 +5,21 @@ import { Users, CreditCard, Power } from 'lucide-react';
 const AdminView = () => {
   const [users, setUsers] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [globalConfidence, setGlobalConfidence] = useState(75);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [resUsers, resReqs] = await Promise.all([
+        const [resUsers, resSubs, resRisk] = await Promise.all([
           axios.get('/api/admin/users'),
-          axios.get('/api/admin/sub_requests')
+          axios.get('/api/admin/sub_requests'),
+          axios.get('/api/user/risk-config')
         ]);
         setUsers(resUsers.data);
-        setRequests(resReqs.data);
+        setRequests(resSubs.data);
+        if (resRisk.data && resRisk.data.strategy) {
+          setGlobalConfidence(resRisk.data.strategy.min_confidence_score);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -108,16 +113,37 @@ const AdminView = () => {
 
       <div className="section-header" style={{ marginTop: '32px' }}>
         <Power size={20} className="icon-accent" />
-        <h2>System Controls</h2>
+        <h2>System Controls & AI Strategy</h2>
       </div>
 
-      <div className="m3-card settings-card" style={{ display: 'flex', gap: '12px', flexDirection: 'row' }}>
-        <button onClick={() => axios.post('/api/admin/kill_switch', { active: true })} className="m3-btn danger" style={{ flex: 1 }}>
-          EMERGENCY KILL SWITCH
-        </button>
-        <button onClick={() => axios.post('/api/admin/reload_config')} className="m3-btn primary" style={{ flex: 1 }}>
-          RELOAD CONFIG
-        </button>
+      <div className="m3-card settings-card">
+        <div className="input-group" style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Global Signal Confidence Threshold (%)</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{globalConfidence}%</span>
+          </label>
+          <input 
+            type="range" 
+            min="50" 
+            max="95" 
+            step="5"
+            value={globalConfidence}
+            onChange={(e) => setGlobalConfidence(e.target.value)}
+            style={{ width: '100%', accentColor: 'var(--accent)' }}
+          />
+          <p style={{ fontSize: '11px', opacity: 0.5, marginTop: '8px' }}>
+            Trades will only be broadcast to users if the AI confidence exceeds this level.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => axios.post('/api/admin/kill_switch', { active: true })} className="m3-btn danger" style={{ flex: 1 }}>
+            EMERGENCY KILL SWITCH
+          </button>
+          <button onClick={() => axios.post('/api/admin/reload_config', { min_confidence_score: globalConfidence })} className="m3-btn primary" style={{ flex: 1 }}>
+            UPDATE & RELOAD AI
+          </button>
+        </div>
       </div>
 
       <div className="danger-zone" style={{ marginTop: '40px' }}>

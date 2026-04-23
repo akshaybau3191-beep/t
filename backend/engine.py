@@ -61,6 +61,7 @@ class PythonTradingEngine:
         self.option_candles = {} # token -> [candles]
     
     def is_market_open(self):
+        if os.getenv('DEBUG_SCAN') == 'true': return True
         now_utc = datetime.now(timezone.utc)
         now = now_utc + timedelta(hours=5, minutes=30)
         if now.weekday() >= 5: return False
@@ -108,8 +109,8 @@ class PythonTradingEngine:
                 time.sleep(10)
 
     def scan_market(self, smart_api):
-        # We focus on NIFTY and BANKNIFTY for multi-strike scanning as per user request
-        indices_to_scan = ['NIFTY', 'BANKNIFTY']
+        # Focus on NIFTY only as per user request
+        indices_to_scan = ['NIFTY']
         
         for name in indices_to_scan:
             try:
@@ -120,7 +121,7 @@ class PythonTradingEngine:
                 ltp = float(ltp_resp['data']['ltp'])
 
                 self.current_task = f"Finding {name} strikes..."
-                options = self.symbol_manager.get_options(name, ltp, range_pts=500)
+                options = self.symbol_manager.get_options(name, ltp, range_pts=400)
                 self.scanned_count = len(options)
                 
                 if not options:
@@ -130,33 +131,28 @@ class PythonTradingEngine:
                 self.current_task = f"Scanning {len(options)} {name} scripts"
                 
                 # Batch fetch market data (Full)
-                # Angel One supports up to 50 tokens per request for FULL data
-                # We split into chunks if necessary
                 chunk_size = 50
                 for i in range(0, len(options), chunk_size):
                     chunk = options[i:i + chunk_size]
                     tokens = [o['token'] for o in chunk]
                     
-                    market_data_resp = smart_api.getMarketData("FULL", {"NSE" if name in self.indices else "NFO": tokens}) # Index is NSE, Options are NFO
-                    # Note: options are NFO
                     market_data_resp = smart_api.getMarketData("FULL", {"NFO": tokens})
                     
                     if not market_data_resp.get('status') or not market_data_resp.get('data'):
+                        print(f"[!] Market Data Fetch Failed for {len(tokens)} tokens: {market_data_resp.get('message')}")
                         continue
                         
+                    print(f"[*] Fetched data for {len(market_data_resp['data']['fetched'])} tokens")
                     fetched_data = market_data_resp['data']['fetched']
                     for o_data in fetched_data:
-                        # Match back to our option info
                         opt_info = next((o for o in chunk if o['token'] == o_data['symbolToken']), None)
                         if not opt_info: continue
                         
-                        # 1. Maintain Rolling Candle Data (1-min)
                         token = opt_info['token']
-                        # Fetch or retry if empty
                         if token not in self.option_candles or not self.option_candles[token]:
                             self.option_candles[token] = self.fetch_option_candles(smart_api, token)
                         
-                        # 2. Modular Signal Generation (Based on Admin's Threshold)
+                        # Modular Signal Generation
                         analysis = self.strategy_manager.analyze_option(
                             self.option_candles[token], 
                             o_data, 
@@ -169,13 +165,16 @@ class PythonTradingEngine:
                             admin = db.session.query(User).filter_by(role='admin').first()
                             min_score = admin.config.min_confidence_score if admin and admin.config else 75
                         
-                        # Update task for UI visibility
-                        self.current_task = f"AI Scanning: {opt_info['symbol']} ({analysis['signal_strength']}%)"
-                        print(f"[*] {self.current_task}")
+                        # AI Scanning: Update UI
+                        self.current_task = f"AI Scanning {name}: {opt_info['symbol']} ({analysis['signal_strength']}%)"
                         
-                        if analysis['signal_strength'] >= min_score:
+                        # OPTION BUYING ONLY: We only dispatch if it's a clear BUY signal and score >= threshold
+                        # In strategy_manager.analyze_option, the 'signal' might be 'BUY' or 'SELL'
+                        if analysis['signal_strength'] >= min_score and analysis['signal'] == 'BUY':
                             self.current_task = f"Signal Found: {opt_info['symbol']} ({analysis['signal_strength']}%)"
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
+            except Exception as e:
+                print(f"[!] Advanced Scanning Error for {name}: {e}")
             except Exception as e:
                 print(f"[!] Advanced Scanning Error for {name}: {e}")
 

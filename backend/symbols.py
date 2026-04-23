@@ -33,7 +33,7 @@ class SymbolManager:
             print(f"[!] Error downloading scrip master: {e}")
         return False
 
-    def get_options(self, name, ltp, range_pts=500):
+    def get_options(self, name, ltp, range_pts=400):
         if not self.symbols:
             self.update_master()
             
