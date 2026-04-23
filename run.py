@@ -108,9 +108,27 @@ def init_db():
                     try:
                         db.session.execute(text("ALTER TABLE system_status ADD COLUMN force_scan_trigger BOOLEAN DEFAULT 0"))
                         db.session.commit()
-                        print("[*] Migrated: Added force_scan_trigger to system_status")
-                    except Exception: 
-                        db.session.rollback()
+                    except Exception: db.session.rollback()
+
+                # Migrate AngelConfig table (Add trailing_sl_pct)
+                cursor.execute("PRAGMA table_info(angel_config)")
+                config_columns = [c[1] for c in cursor.fetchall()]
+                if 'trailing_sl_pct' not in config_columns:
+                    try:
+                        db.session.execute(text("ALTER TABLE angel_config ADD COLUMN trailing_sl_pct FLOAT DEFAULT 1.0"))
+                        db.session.commit()
+                        print("[*] Migrated: Added trailing_sl_pct to angel_config")
+                    except Exception: db.session.rollback()
+
+                # Migrate Position table (Add tsl_price)
+                cursor.execute("PRAGMA table_info(position)")
+                pos_columns = [c[1] for c in cursor.fetchall()]
+                if 'tsl_price' not in pos_columns:
+                    try:
+                        db.session.execute(text("ALTER TABLE position ADD COLUMN tsl_price FLOAT"))
+                        db.session.commit()
+                        print("[*] Migrated: Added tsl_price to position")
+                    except Exception: db.session.rollback()
                 
                 # Create Signal table if not exists
                 db.create_all()
