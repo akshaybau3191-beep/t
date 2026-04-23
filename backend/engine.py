@@ -321,33 +321,31 @@ class PythonTradingEngine:
         if pos and pos.quantity != 0:
             return 
             
-        # 2. Dynamic Lot Sizing & Slippage
+        # 2. Dynamic Lot Sizing & Fallback Logic
         user_cfg = user.config
+        market_lot = 65 if index == 'NIFTY' else 30
+        price_per_lot = data['price'] * market_lot
+        total_cap = user_cfg.starting_capital or 100000
+        
+        # Calculate how many lots we can afford
         lot_size = self.risk_manager.calculate_lot_size(user_cfg, index, data['price'])
-        
-        if lot_size <= 0:
-            print(f"[*] Skipping trade for {user.username} - Insufficient capital for 1 lot.")
-            return
-            
-        slippage = 0.001 # 0.1% buffer
-        limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
-        
-        # 3. Mode Selection with Risk & Capital Fallback
-        # Check if user has reached their daily limits
-        allowed, reason = self.check_user_risk(user)
-        
-        # Check Capital Exposure
-        # Calculate current deployed margin (sum of absolute values of current positions)
-        with self.app.app_context():
-            active_positions = db.session.query(Position).filter_by(user_id=user.id, mode='LIVE').all()
-            deployed_capital = sum(abs(p.quantity * p.avg_price) for p in active_positions)
-            
-        new_trade_value = lot_size * data['price']
-        total_required = deployed_capital + new_trade_value
-        capital_limit = user_cfg.starting_capital or 100000.0
         
         mode = user_cfg.trading_mode
         exec_reason = "Admin Signal"
+        
+        # Check if we can afford at least 1 lot for LIVE
+        if mode == 'LIVE' and lot_size <= 0:
+            print(f"[*] Insufficient capital for LIVE trade (Need ₹{price_per_lot:.0f}, Have ₹{total_cap:.0f})")
+            print(f"[*] Downgrading to PAPER for {user.username} to track signal.")
+            mode = 'PAPER'
+            lot_size = market_lot # Use 1 lot for paper tracking
+            exec_reason = "Insufficient Capital (Live -> Paper)"
+        elif lot_size <= 0:
+            # Even for paper, if price is somehow 0
+            return
+
+        slippage = 0.001 
+        limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
         
         if mode == 'LIVE':
             if not allowed:
