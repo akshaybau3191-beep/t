@@ -84,6 +84,20 @@ class SystemStatus(db.Model):
     force_scan_trigger = db.Column(db.Boolean, default=False)
     last_update = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
+class Signal(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    index = db.Column(db.String(20))
+    symbol = db.Column(db.String(50))
+    token = db.Column(db.String(20))
+    signal_type = db.Column(db.String(10)) # CE/PE
+    price = db.Column(db.Float)
+    confidence = db.Column(db.Integer)
+    sl = db.Column(db.Float)
+    tp = db.Column(db.Float)
+    strategy_snapshot = db.Column(db.Text)
+    is_processed = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
+
 def update_system_status(task, count, status='Online'):
     """Helper to update shared status in DB"""
     try:

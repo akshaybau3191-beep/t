@@ -46,13 +46,13 @@ def run_worker():
                             login_angel_one(admin, app)
                         
                         if admin.id in user_sessions:
+                            # Dedicated Scanning Loop
                             engine.scan_market(user_sessions[admin.id])
-                            engine.monitor_positions()
                         else:
-                            engine.log_to_file("[!] Admin login failed. Check credentials.")
+                            engine.log_to_file("[!] Admin login failed. Cannot scan.")
                     
                     if not force_scan:
-                        time.sleep(10) # Normal cycle
+                        time.sleep(2) # Faster scanning cycle (Scanner Only)
                     else:
                         engine.log_to_file("Manual Scan Complete.")
                 else:

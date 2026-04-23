@@ -206,11 +206,35 @@ class PythonTradingEngine:
                 if best_candidate:
                     win = best_candidate['opt_info']
                     self.log_to_file(f"🎯 ELITE SELECTION: {win['symbol']} chosen for trade ({best_candidate['signal_strength']}%)")
-                    self.dispatch_trade(name, best_candidate, win['type'], win['symbol'], win['token'])
+                    # Broadcast for Distributed Executor
+                    self.broadcast_signal(name, best_candidate)
                 else:
                     self.log_to_file("[i] No high-potential candidates met the threshold this cycle.")
             except Exception as e:
                 self.log_to_file(f"Error scanning {name}: {e}")
+
+    def broadcast_signal(self, index, data):
+        """Saves master signal to DB for the Distributed Executor to pick up"""
+        with self.app.app_context():
+            from backend.models import db, Signal
+            try:
+                win = data['opt_info']
+                new_sig = Signal(
+                    index=index,
+                    symbol=win['symbol'],
+                    token=win['token'],
+                    signal_type=win['type'],
+                    price=data['price'],
+                    confidence=data['signal_strength'],
+                    sl=data['sl'],
+                    tp=data['tp'],
+                    strategy_snapshot=json.dumps(data)
+                )
+                db.session.add(new_sig)
+                db.session.commit()
+                self.log_to_file(f"📢 MASTER SIGNAL BROADCASTED: {win['symbol']} at ₹{data['price']}")
+            except Exception as e:
+                self.log_to_file(f"[!] Broadcast Failed: {e}")
             except Exception as e:
                 print(f"[!] Advanced Scanning Error for {name}: {e}")
 

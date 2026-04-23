@@ -108,7 +108,9 @@ def init_db():
                         db.session.execute(text("ALTER TABLE system_status ADD COLUMN force_scan_trigger BOOLEAN DEFAULT 0"))
                         db.session.commit()
                         print("[*] Migrated: Added force_scan_trigger to system_status")
-                    except Exception: db.session.rollback()
+                # Create Signal table if not exists
+                db.create_all()
+                db.session.commit()
                 
                 # Ensure every user has an AngelConfig
                 cursor.execute("SELECT id FROM user")
