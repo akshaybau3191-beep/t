@@ -52,7 +52,6 @@ class SymbolManager:
             return []
             
         # Identify current expiry (Nearest date >= today)
-        today = datetime.now()
         def parse_expiry(exp_str):
             try:
                 # Format: 25APR2024 or 2024-04-25
@@ -62,16 +61,30 @@ class SymbolManager:
                 return datetime.max
             except: return datetime.max
 
-        unique_expiries = list(set(s.get('expiry') for s in relevant))
-        sorted_expiries = sorted(unique_expiries, key=parse_expiry)
+        # 1. Aggressive Filtering for NIFTY
+        relevant = [
+            s for s in self.symbols 
+            if (s.get('name') == name or name in s.get('symbol', ''))
+            and s.get('exch_seg') == 'NFO' 
+            and s.get('instrumenttype') == 'OPTIDX'
+        ]
         
-        # Filter for future/today expiries only
-        future_expiries = [e for e in sorted_expiries if parse_expiry(e).date() >= today.date()]
-        if not future_expiries:
+        all_expiries = list(set([s.get('expiry') for s in relevant if s.get('expiry')]))
+        if not all_expiries:
+            print(f"[!] CRITICAL: No expiries found for {name} in master list!")
             return []
-            
+
+        sorted_expiries = sorted(all_expiries, key=parse_expiry)
+        today = datetime.now()
+        future_expiries = [e for e in sorted_expiries if parse_expiry(e).date() >= today.date()]
+        
+        if not future_expiries:
+            print(f"[!] No future expiries found. Today: {today.date()} | All found: {sorted_expiries[:3]}")
+            return []
+
         current_expiry = future_expiries[0]
-        print(f"[*] Identified Current Expiry: {current_expiry}")
+        print(f"[*] Found Expiries: {future_expiries[:3]}")
+        print(f"[*] Targeting Expiry: {current_expiry}")
         
         # Filter by expiry and strike range
         strike_min = ltp - range_pts
@@ -81,19 +94,14 @@ class SymbolManager:
         for s in relevant:
             if s.get('expiry') == current_expiry:
                 try:
-                    # Angel One strike handling
                     raw_strike = float(s.get('strike', 0))
-                    # Handle both 22400.0 and 2240000.0 formats
                     strike = raw_strike / 100 if raw_strike > 100000 else raw_strike
                         
                     if strike_min <= strike <= strike_max:
-                        # Improved CE/PE detection
                         symbol = s.get('symbol', '')
-                        opt_type = None
-                        if 'CE' in symbol: opt_type = 'CE'
-                        elif 'PE' in symbol: opt_type = 'PE'
-                        
-                        if opt_type:
+                        # Ensure it's NIFTY and not BANKNIFTY/FINNIFTY
+                        if "NIFTY" in symbol and "BANK" not in symbol and "FIN" not in symbol:
+                            opt_type = 'CE' if 'CE' in symbol else 'PE'
                             options.append({
                                 'symbol': symbol,
                                 'token': s.get('token'),
