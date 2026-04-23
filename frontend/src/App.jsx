@@ -170,14 +170,24 @@ const Dashboard = () => {
 
       <div className="terminal-container m3-card active">
          <div className="terminal-header">
+            <div className="live-indicator"></div>
             <Terminal size={16} />
             <span>AI Engine Live Console</span>
+            <div style={{ marginLeft: 'auto', opacity: 0.5, fontSize: '10px' }}>
+              Auto-refreshing every 2s
+            </div>
          </div>
          <div className="terminal-content">
-            {logs.length > 0 ? logs.map((log, i) => (
-               <div key={i} className="log-line">{log}</div>
-            )) : <div className="log-line opacity-50">Waiting for logs...</div>}
-            <div ref={logEndRef} />
+            {logs.length === 0 ? (
+               <div className="log-line opacity-50">Waiting for AI Engine heartbeat...</div>
+            ) : (
+               logs.map((log, i) => (
+                  <div key={i} className="log-line">
+                     <span className="log-prefix">&gt;</span> {log}
+                  </div>
+               ))
+            )}
+            <div ref={terminalEndRef} />
          </div>
       </div>
 
@@ -214,8 +224,12 @@ const Dashboard = () => {
         
         .terminal-container { background: #000; border: 1px solid #333; padding: 16px; height: 350px; display: flex; flex-direction: column; margin-bottom: 24px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
         .terminal-header { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #666; margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .live-indicator { width: 8px; height: 8px; background: #0f0; border-radius: 50%; box-shadow: 0 0 10px #0f0; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .log-prefix { color: var(--accent); margin-right: 8px; font-weight: bold; }
         .terminal-content { flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6; color: #0f0; }
-        .log-line { margin-bottom: 4px; }
+        .log-line { margin-bottom: 4px; display: flex; }
+        .opacity-50 { opacity: 0.5; }
         
         .indices-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
         .index-chip { padding: 12px 20px; border-radius: 100px; background: rgba(255, 255, 255, 0.05); display: flex; gap: 12px; white-space: nowrap; border: 1px solid var(--glass-border); }
