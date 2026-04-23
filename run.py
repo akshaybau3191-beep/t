@@ -90,6 +90,16 @@ def init_db():
                         db.session.commit()
                     except Exception: db.session.rollback()
                 
+                # Migrate SystemStatus table
+                cursor.execute("PRAGMA table_info(system_status)")
+                status_columns = [c[1] for c in cursor.fetchall()]
+                if 'force_scan_trigger' not in status_columns:
+                    try:
+                        db.session.execute(text("ALTER TABLE system_status ADD COLUMN force_scan_trigger BOOLEAN DEFAULT 0"))
+                        db.session.commit()
+                        print("[*] Migrated: Added force_scan_trigger to system_status")
+                    except Exception: db.session.rollback()
+                
                 # Ensure every user has an AngelConfig
                 cursor.execute("SELECT id FROM user")
                 users = cursor.fetchall()

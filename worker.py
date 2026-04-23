@@ -12,9 +12,14 @@ from backend.models import db, User, update_system_status, SystemStatus
 from backend.engine import PythonTradingEngine, login_angel_one, user_sessions
 
 def run_worker():
-    print("[*] AI Trading Worker Starting...")
-    engine = PythonTradingEngine(app)
-    engine.log_to_file(">>> WORKER PROCESS STARTED <<<")
+    print("[*] AI Trading Worker Process Initializing...")
+    try:
+        engine = PythonTradingEngine(app)
+        engine.log_to_file(">>> WORKER BOOTING: Initializing NIFTY Scanner <<<")
+        engine.log_to_file(f"Targeting: NIFTY Only | Range: +/- 400 | Mode: Option Buying")
+    except Exception as e:
+        print(f"[!] Initialization Failed: {e}")
+        return
     
     while True:
         try:
