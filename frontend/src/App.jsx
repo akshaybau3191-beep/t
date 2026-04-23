@@ -124,9 +124,11 @@ const Dashboard = () => {
             </button>
          </div>
          <div className="quick-actions">
-            <button onClick={() => axios.post('/api/admin/start_engine')} className="action-btn-circle" title="Restart Engine">
-               <Play size={18} />
-            </button>
+            {stats?.user_role === 'admin' && (
+              <button onClick={() => axios.post('/api/admin/start_engine')} className="action-btn-circle" title="Restart Engine">
+                 <Play size={18} />
+              </button>
+            )}
          </div>
       </div>
 

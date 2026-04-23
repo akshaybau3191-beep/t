@@ -396,7 +396,9 @@ def user_stats():
         'is_market_open': is_open,
         'engine_task': engine_task,
         'engine_status': engine_status,
-        'scanned_count': scanned_count
+        'scanned_count': scanned_count,
+        'user_role': user.role,
+        'trading_mode': user.config.trading_mode if user.config else 'PAPER'
     })
 
 @app.route('/api/angel/postback/<username>', methods=['POST'])
