@@ -1,9 +1,10 @@
 import os
 import sys
 import time
-from datetime import datetime, timezone, timedelta
+import threading
+from datetime import datetime, date
 
-# --- INITIALIZE PATHS ---
+# --- VENDORIZED DEPENDENCIES ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
@@ -15,8 +16,23 @@ def run_worker():
     print("[*] AI Trading Worker Process Initializing...")
     try:
         engine = PythonTradingEngine(app)
-        engine.log_to_file(">>> WORKER BOOTING: Initializing NIFTY Scanner <<<")
-        engine.log_to_file(f"Targeting: NIFTY Only | Range: +/- 400 | Mode: Option Buying")
+        engine.log_to_file(">>> WORKER BOOTING: Elite Scanner Initialized <<<")
+        
+        # --- BACKGROUND HEARTBEAT THREAD ---
+        def heartbeat_pulse():
+            while True:
+                try:
+                    with app.app_context():
+                        update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
+                    time.sleep(10) # Pulse every 10 seconds
+                except Exception as e:
+                    print(f"[!] Heartbeat Pulse Error: {e}")
+                    time.sleep(5)
+        
+        pulse_thread = threading.Thread(target=heartbeat_pulse, daemon=True)
+        pulse_thread.start()
+        print("[*] Heartbeat Pulse Thread Started.")
+        
     except Exception as e:
         print(f"[!] Initialization Failed: {e}")
         return
@@ -33,38 +49,27 @@ def run_worker():
                     db.session.commit()
                     force_scan = True
                 
-                # 2. Heartbeat & Status Update
-                update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
-                if int(time.time()) % 30 == 0:
-                    engine.log_to_file("💓 Heartbeat: Worker process is healthy and scanning...")
-                
-                # 3. Market Open Check OR Forced Scan
+                # 2. Market Open Check OR Forced Scan
                 if engine.is_market_open() or force_scan:
                     admin = db.session.query(User).filter_by(role='admin').first()
                     if admin:
-                        # Auto-login if needed
+                        # Auto-login check
                         if admin.id not in user_sessions:
                             engine.log_to_file(f"Logging in admin: {admin.username}")
                             login_angel_one(admin, app)
                         
                         if admin.id in user_sessions:
-                            # Dedicated Scanning Loop
+                            # Dedicated Elite Scanning Loop
                             engine.scan_market(user_sessions[admin.id])
                         else:
                             engine.log_to_file("[!] Admin login failed. Cannot scan.")
                     
-                    if not force_scan:
-                        time.sleep(2) # Faster scanning cycle (Scanner Only)
-                    else:
-                        engine.log_to_file("Manual Scan Complete.")
+                    time.sleep(1) # Fast cycle
                 else:
-                    # After hours heartbeat
-                    if int(time.time()) % 60 == 0:
-                        engine.log_to_file("Market closed. Idle Heartbeat...")
-                    time.sleep(1) # Fast poll for manual triggers
+                    time.sleep(5) # Idle mode
                     
         except Exception as e:
-            print(f"[!] Worker Error: {e}")
+            print(f"[!] Worker Loop Error: {e}")
             time.sleep(5)
 
 if __name__ == "__main__":
