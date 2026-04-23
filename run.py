@@ -16,6 +16,7 @@ if os.path.exists(MODULES_DIR):
     print(f"[*] Local modules path initialized: {MODULES_DIR}")
 
 from flask import Flask, request, jsonify, session, send_from_directory
+from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import fcntl
 
@@ -25,6 +26,7 @@ from backend.engine import PythonTradingEngine, login_angel_one, user_sessions, 
 from backend.auth import login_required, admin_required
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True) # Enable CORS for frontend
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default-unsafe-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "trading.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -160,6 +162,8 @@ def login():
     data = request.json
     user = db.session.query(User).filter_by(username=data['username']).first()
     if user and check_password_hash(user.password_hash, data['password']):
+        user.last_login_date = datetime.now(timezone.utc).date()
+        db.session.commit()
         session['user_id'] = user.id
         session['role'] = user.role
         session['username'] = user.username
@@ -575,14 +579,10 @@ schedule_autologin()
 def shutdown():
     os._exit(0)
 
-# Catch-all routes at the bottom
+# Catch-all route for API-only server (optional, could just be removed)
 @app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('.', path)
+def api_status():
+    return jsonify({'status': 'online', 'service': 'AI Bot Trader API'})
 
 if __name__ == '__main__':
     # When running directly (development), use the Flask dev server

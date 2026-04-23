@@ -29,9 +29,14 @@ modules/
 instance/
 trading.db
 .env
-scratch/
 backend/__pycache__/
-js/__pycache__/
+
+# Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.DS_Store
 
 # Logs
 *.log
