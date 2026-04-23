@@ -155,23 +155,22 @@ class PythonTradingEngine:
                     self.log_to_file(f"[!] No active {name} options found in +/- 400 range.")
                     continue
 
-                self.log_to_file(f"[*] Found {len(options)} options. Starting AI analysis...")
-
-                self.current_task = f"Scanning {len(options)} {name} scripts"
+                self.log_to_file(f"[*] Found {len(options)} options. Starting Selective AI analysis...")
                 
-                # Batch fetch market data (Full)
+                best_candidate = None
+                with self.app.app_context():
+                    admin = db.session.query(User).filter_by(role='admin').first()
+                    min_score = admin.config.min_confidence_score if admin and admin.config else 75
+
+                # Step 1: Collect All Valid Signals
                 chunk_size = 50
                 for i in range(0, len(options), chunk_size):
                     chunk = options[i:i + chunk_size]
                     tokens = [o['token'] for o in chunk]
-                    
                     market_data_resp = smart_api.getMarketData("FULL", {"NFO": tokens})
                     
-                    if not market_data_resp.get('status') or not market_data_resp.get('data'):
-                        print(f"[!] Market Data Fetch Failed for {len(tokens)} tokens: {market_data_resp.get('message')}")
-                        continue
-                        
-                    print(f"[*] Fetched data for {len(market_data_resp['data']['fetched'])} tokens")
+                    if not market_data_resp.get('status') or not market_data_resp.get('data'): continue
+                    
                     fetched_data = market_data_resp['data']['fetched']
                     for o_data in fetched_data:
                         opt_info = next((o for o in chunk if o['token'] == o_data['symbolToken']), None)
@@ -181,35 +180,35 @@ class PythonTradingEngine:
                         if token not in self.option_candles or not self.option_candles[token]:
                             self.option_candles[token] = self.fetch_option_candles(smart_api, token)
                         
-                        # Modular Signal Generation (Step-by-Step Thinking)
+                        # Step 2: Analyze each strike
                         analysis = self.strategy_manager.analyze_option(
-                            self.option_candles[token], 
-                            o_data, 
-                            opt_info, 
-                            ltp,
-                            logger=self.log_to_file
+                            self.option_candles[token], o_data, opt_info, ltp, logger=self.log_to_file
                         )
                         
-                        # Find Admin's Threshold
-                        with self.app.app_context():
-                            admin = db.session.query(User).filter_by(role='admin').first()
-                            min_score = admin.config.min_confidence_score if admin and admin.config else 75
-                        
-                        # AI Verdict Logging
-                        verdict_msg = f"Final Verdict for {opt_info['symbol']}: {analysis['signal_strength']}% Confidence ({analysis['signal']})"
-                        if analysis['signal_strength'] < min_score:
-                            verdict_msg += f" - [IGNORED: Threshold is {min_score}%]"
-                        self.log_to_file(verdict_msg)
-
-                        # Update UI
-                        self.current_task = f"AI Scanning: {opt_info['symbol']} ({analysis['signal_strength']}%)"
-                        with self.app.app_context():
-                            update_system_status(self.current_task, self.scanned_count)
-                        
-                        # OPTION BUYING ONLY
+                        # Step 3: Evaluate Candidate
                         if analysis['signal_strength'] >= min_score and analysis['signal'] == 'BUY':
-                            self.log_to_file(f"🎯 SIGNAL APPROVED: Dispatching {opt_info['symbol']} Order...")
-                            self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
+                            distance = abs(opt_info['strike'] - ltp)
+                            analysis['distance'] = distance
+                            analysis['opt_info'] = opt_info
+                            
+                            self.log_to_file(f"   [CANDIDATE] {opt_info['symbol']} found at {analysis['signal_strength']}% Confidence")
+                            
+                            # Selection Logic: Higher strength first, then closer to LTP
+                            if not best_candidate:
+                                best_candidate = analysis
+                            else:
+                                if analysis['signal_strength'] > best_candidate['signal_strength']:
+                                    best_candidate = analysis
+                                elif analysis['signal_strength'] == best_candidate['signal_strength'] and distance < best_candidate['distance']:
+                                    best_candidate = analysis
+
+                # Step 4: Finalize the "Winner"
+                if best_candidate:
+                    win = best_candidate['opt_info']
+                    self.log_to_file(f"🎯 ELITE SELECTION: {win['symbol']} chosen for trade ({best_candidate['signal_strength']}%)")
+                    self.dispatch_trade(name, best_candidate, win['type'], win['symbol'], win['token'])
+                else:
+                    self.log_to_file("[i] No high-potential candidates met the threshold this cycle.")
             except Exception as e:
                 self.log_to_file(f"Error scanning {name}: {e}")
             except Exception as e:
