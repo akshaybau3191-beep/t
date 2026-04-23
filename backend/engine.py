@@ -390,7 +390,9 @@ class PythonTradingEngine:
                         'transactiontype': signal,
                         'quantity': str(lot_size),
                         'price': str(data['price']),
-                        'status': 'COMPLETE'
+                        'status': 'COMPLETE',
+                        'sl': data.get('sl'), # Pass SL
+                        'tp': data.get('tp')  # Pass TP
                     }
                     update_position_from_trade(user.id, mock_data, self.app, mode=mode)
                     db.session.commit()
@@ -438,16 +440,18 @@ class PythonTradingEngine:
                             else: # Short
                                 pos.unrealized_pnl = abs(pos.quantity) * (pos.avg_price - ltp)
                             
-                            # Dynamic Exit Logic (ATR based or 5%/2%)
-                            # We use ATR for SL if available, target stays 2x SL
-                            # If no ATR stored (old trades), use defaults
-                            pnl_pct = (pos.unrealized_pnl / (abs(pos.quantity) * pos.avg_price)) * 100
+                            # Master Exit Logic: Using Dynamic SL/TP from Database
+                            exit_triggered = False
+                            if pos.quantity > 0: # Long
+                                if pos.sl_price and ltp <= pos.sl_price:
+                                    exit_triggered = True
+                                    reason = f"STOP LOSS HIT at {ltp}"
+                                elif pos.tp_price and ltp >= pos.tp_price:
+                                    exit_triggered = True
+                                    reason = f"TAKE PROFIT HIT at {ltp}"
                             
-                            # target/sl from position or defaults
-                            target = 5.0
-                            sl = -2.0
-                            
-                            if pnl_pct >= target or pnl_pct <= sl:
+                            if exit_triggered:
+                                self.log_to_file(f"🛡️ EXIT SIGNAL: {pos.symbol} | {reason}")
                                 self.exit_position(user, pos, ltp)
                         else:
                             print(f"[!] LTP Fetch Failed for {pos.symbol}: {ltp_resp.get('message')}")
@@ -538,8 +542,22 @@ def update_position_from_trade(user_id, trade_data, app, mode='PAPER'):
         # 2. Update Position
         pos = db.session.query(Position).filter_by(user_id=user_id, token=trade.token).first()
         if not pos:
-            pos = Position(user_id=user_id, symbol=trade.symbol, token=trade.token, quantity=0, avg_price=0.0, realized_pnl=0.0, mode=mode)
+            pos = Position(
+                user_id=user_id, 
+                symbol=trade.symbol, 
+                token=trade.token, 
+                quantity=0, 
+                avg_price=0.0, 
+                realized_pnl=0.0, 
+                mode=mode,
+                sl_price=trade_data.get('sl'), # Store SL Price
+                tp_price=trade_data.get('tp')  # Store TP Price
+            )
             db.session.add(pos)
+        else:
+            # Update SL/TP for existing positions if provided
+            if trade_data.get('sl'): pos.sl_price = trade_data.get('sl')
+            if trade_data.get('tp'): pos.tp_price = trade_data.get('tp')
 
         # Ensure quantity is not None
         if pos.quantity is None: pos.quantity = 0

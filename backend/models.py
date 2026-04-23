@@ -54,6 +54,8 @@ class Position(db.Model):
     unrealized_pnl = db.Column(db.Float, default=0.0)
     last_price = db.Column(db.Float, default=0.0)
     mode = db.Column(db.String(10), default='PAPER') # LIVE/PAPER
+    sl_price = db.Column(db.Float, nullable=True)
+    tp_price = db.Column(db.Float, nullable=True)
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
 class DailyStats(db.Model):

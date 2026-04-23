@@ -90,6 +90,16 @@ def init_db():
                         db.session.commit()
                     except Exception: db.session.rollback()
                 
+                # Migrate Positions table for SL/TP
+                cursor.execute("PRAGMA table_info(position)")
+                pos_columns = [c[1] for c in cursor.fetchall()]
+                for col in ['sl_price', 'tp_price']:
+                    if col not in pos_columns:
+                        try:
+                            db.session.execute(text(f"ALTER TABLE position ADD COLUMN {col} FLOAT"))
+                            db.session.commit()
+                        except Exception: db.session.rollback()
+                
                 # Migrate SystemStatus table
                 cursor.execute("PRAGMA table_info(system_status)")
                 status_columns = [c[1] for c in cursor.fetchall()]
