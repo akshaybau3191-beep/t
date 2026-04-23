@@ -1,15 +1,16 @@
 [Unit]
-Description=Gunicorn instance to serve AI Trading Bot
+Description=Gunicorn instance to serve AI Trading Bot (React + Flask)
 After=network.target
 
 [Service]
-# IMPORTANT: Ensure /home/ubuntu/Ai-Bot-Trader is owned by ubuntu:www-data
-# Run: sudo chown -R ubuntu:www-data /home/ubuntu/Ai-Bot-Trader
+# User and Path restored for ubuntu environment
 User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/Ai-Bot-Trader
-Environment="PATH=/home/ubuntu/Ai-Bot-Trader/venv/bin"
-ExecStart=/home/ubuntu/Ai-Bot-Trader/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 run:app
+# Note: Using venv if exists, fallback to system
+Environment="PATH=/home/ubuntu/Ai-Bot-Trader/venv/bin:/usr/local/bin:/usr/bin:/bin"
+# Run with gunicorn
+ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 run:app
 
 [Install]
 WantedBy=multi-user.target
