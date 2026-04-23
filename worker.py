@@ -1,10 +1,9 @@
 import os
 import sys
 import time
-import threading
-from datetime import datetime, date
+from datetime import datetime
 
-# --- VENDORIZED DEPENDENCIES ---
+# --- INITIALIZE PATHS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
@@ -17,22 +16,6 @@ def run_worker():
     try:
         engine = PythonTradingEngine(app)
         engine.log_to_file(">>> WORKER BOOTING: Elite Scanner Initialized <<<")
-        
-        # --- BACKGROUND HEARTBEAT THREAD ---
-        def heartbeat_pulse():
-            while True:
-                try:
-                    with app.app_context():
-                        update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
-                    time.sleep(10) # Pulse every 10 seconds
-                except Exception as e:
-                    print(f"[!] Heartbeat Pulse Error: {e}")
-                    time.sleep(5)
-        
-        pulse_thread = threading.Thread(target=heartbeat_pulse, daemon=True)
-        pulse_thread.start()
-        print("[*] Heartbeat Pulse Thread Started.")
-        
     except Exception as e:
         print(f"[!] Initialization Failed: {e}")
         return
@@ -49,7 +32,10 @@ def run_worker():
                     db.session.commit()
                     force_scan = True
                 
-                # 2. Market Open Check OR Forced Scan
+                # 2. Heartbeat & Status Update
+                update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
+                
+                # 3. Market Open Check OR Forced Scan
                 if engine.is_market_open() or force_scan:
                     admin = db.session.query(User).filter_by(role='admin').first()
                     if admin:
@@ -64,7 +50,7 @@ def run_worker():
                         else:
                             engine.log_to_file("[!] Admin login failed. Cannot scan.")
                     
-                    time.sleep(1) # Fast cycle
+                    time.sleep(2) # Faster scanning cycle
                 else:
                     time.sleep(5) # Idle mode
                     

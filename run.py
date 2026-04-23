@@ -54,7 +54,7 @@ def init_db():
             try:
                 import sqlite3
                 from sqlalchemy import text
-                db_path = os.path.join(BASE_DIR, "trading.db")
+                db_path = "trading.db"
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA table_info(angel_config)")
@@ -356,22 +356,18 @@ def get_engine_logs():
         combined_logs = []
         
         # 1. Read Scanner Logs
-        engine_log = os.path.join(BASE_DIR, "engine.log")
-        if os.path.exists(engine_log):
-            with open(engine_log, "r") as f:
+        if os.path.exists("engine.log"):
+            with open("engine.log", "r") as f:
                 combined_logs.extend(f.readlines()[-50:])
                 
         # 2. Read Executor Logs
-        exec_log = os.path.join(BASE_DIR, "executor.log")
-        if os.path.exists(exec_log):
-            with open(exec_log, "r") as f:
+        if os.path.exists("executor.log"):
+            with open("executor.log", "r") as f:
                 combined_logs.extend(f.readlines()[-50:])
                 
         # 3. Sort by timestamp (assuming standard format [YYYY-MM-DD HH:MM:SS])
-        # This keeps the combined timeline accurate
         combined_logs.sort()
         
-        # Return last 60 lines of combined stream
         return jsonify(combined_logs[-60:])
     except Exception as e:
         return jsonify([f"[!] Error reading logs: {str(e)}"])

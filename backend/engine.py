@@ -9,8 +9,7 @@ class PythonTradingEngine:
         self.app = app
         self.scanned_count = 0
         self.current_task = "Idle"
-        # Force absolute path for logs to ensure API can find them
-        self.log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "engine.log")
+        self.log_path = "engine.log"
 
     def log_to_file(self, message):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -132,8 +131,9 @@ class PythonTradingEngine:
                 self.execute_paper_trade(user, symbol, token, analysis)
                 return
 
-            # 3. Check Subscription & Mode
+            # 3. Check Role & Subscription
             mode = user.config.trading_mode
+            if user.role == 'admin': mode = 'PAPER'
             
             if user.expiry_date and user.expiry_date < datetime.now().date():
                 self.log_to_file(f"⚠️ {user.username} - Subscription Expired. (PAPER MODE)")
