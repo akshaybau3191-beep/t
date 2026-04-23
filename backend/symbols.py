@@ -81,24 +81,32 @@ class SymbolManager:
         for s in relevant:
             if s.get('expiry') == current_expiry:
                 try:
-                    # Angel One strike is usually actual strike (e.g., 22400.00)
-                    # But it's better to be safe
+                    # Angel One strike handling
                     raw_strike = float(s.get('strike', 0))
-                    # If strike is 2240000.0, it needs / 100
+                    # Handle both 22400.0 and 2240000.0 formats
                     strike = raw_strike / 100 if raw_strike > 100000 else raw_strike
                         
                     if strike_min <= strike <= strike_max:
-                        options.append({
-                            'symbol': s.get('symbol'),
-                            'token': s.get('token'),
-                            'strike': strike,
-                            'type': 'CE' if s.get('symbol').endswith('CE') else 'PE',
-                            'expiry': current_expiry
-                        })
+                        # Improved CE/PE detection
+                        symbol = s.get('symbol', '')
+                        opt_type = None
+                        if 'CE' in symbol: opt_type = 'CE'
+                        elif 'PE' in symbol: opt_type = 'PE'
+                        
+                        if opt_type:
+                            options.append({
+                                'symbol': symbol,
+                                'token': s.get('token'),
+                                'strike': strike,
+                                'type': opt_type,
+                                'expiry': current_expiry
+                            })
                 except:
                     continue
         
-        print(f"[*] Found {len(options)} options for {name} (LTP: {ltp})")
+        # Sort options by strike for better log readability
+        options = sorted(options, key=lambda x: x['strike'])
+        print(f"[*] Found {len(options)} NIFTY options in +/- 400 range.")
         return options
 
 if __name__ == "__main__":
