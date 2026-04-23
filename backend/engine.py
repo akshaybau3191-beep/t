@@ -32,7 +32,7 @@ class PythonTradingEngine:
         return m_start <= now <= m_end
 
     def scan_market(self, obj):
-        """Institutional Deep-Study Loop: Analyzing each candidate individually"""
+        """Institutional Deep-Study Loop: Analyzing each candidate individually for CURRENT EXPIRY and +/-200 LTP range"""
         from backend.symbols import SymbolManager
         from backend.strategy import EliteStrategyManager
         
@@ -47,13 +47,13 @@ class PythonTradingEngine:
                 return
             nifty_ltp = float(ltp_resp['data']['ltp'])
             
-            # 2. Find Candidates in +/- 400 Range
-            candidates = sm.get_options("NIFTY", nifty_ltp, range_pts=400)
+            # 2. Find Candidates in +/- 200 Range (current expiry only)
+            candidates = sm.get_options("NIFTY", nifty_ltp, range_pts=200)
             if not candidates:
-                self.log_to_file(f"[!] No active NIFTY options found near {nifty_ltp}")
+                self.log_to_file(f"[!] No active NIFTY options found near {nifty_ltp} within ±200 pts")
                 return
             
-            self.log_to_file(f"🔎 Elite Study: Analyzing {len(candidates)} candidates for institutional setup...")
+            self.log_to_file(f"🔎 Elite Study: Analyzing {len(candidates)} candidates for current expiry ±200 LTP range...")
             
             for cand in candidates:
                 try:
@@ -62,23 +62,22 @@ class PythonTradingEngine:
                     if not m_data.get('status') or not m_data.get('data'): continue
                     data = m_data['data']['fetched'][0]
                     
-                    # B. Fetch Multi-Timeframe Candles (1m, 3m, 5m)
-                    # We add small sleeps to avoid rate limiting during deep study
-                    time.sleep(0.3)
+                    # B. Fetch Multi-Timeframe Candles (1m, 3m, 5m) with rate‑limit safety
+                    time.sleep(0.2)  # simple rate‑limit guard
                     h1 = obj.getCandleData({
                         "exchange": "NFO", "symboltoken": cand['token'], "interval": "ONE_MINUTE",
                         "fromdate": (datetime.now() - timedelta(minutes=60)).strftime('%Y-%m-%d %H:%M'),
                         "todate": datetime.now().strftime('%Y-%m-%d %H:%M')
                     })
                     
-                    time.sleep(0.3)
+                    time.sleep(0.2)
                     h3 = obj.getCandleData({
                         "exchange": "NFO", "symboltoken": cand['token'], "interval": "THREE_MINUTE",
                         "fromdate": (datetime.now() - timedelta(minutes=180)).strftime('%Y-%m-%d %H:%M'),
                         "todate": datetime.now().strftime('%Y-%m-%d %H:%M')
                     })
                     
-                    time.sleep(0.3)
+                    time.sleep(0.2)
                     h5 = obj.getCandleData({
                         "exchange": "NFO", "symboltoken": cand['token'], "interval": "FIVE_MINUTE",
                         "fromdate": (datetime.now() - timedelta(minutes=300)).strftime('%Y-%m-%d %H:%M'),
