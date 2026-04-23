@@ -349,26 +349,34 @@ def toggle_execution_mode():
         return jsonify({'success': True, 'mode': user.config.trading_mode})
     return jsonify({'success': False})
 
+# Configure Absolute Paths for Production Stability
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "trading.db")}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 @app.route('/api/user/engine_logs', methods=['GET'])
 def get_engine_logs():
-    """Combined logs from Scanner and Executor workers"""
+    """Combined logs from Scanner and Executor workers using absolute paths"""
     try:
         combined_logs = []
         
-        # 1. Read Scanner Logs
-        if os.path.exists("engine.log"):
-            with open("engine.log", "r") as f:
-                combined_logs.extend(f.readlines()[-50:])
+        # 1. Read Scanner Logs from absolute path
+        engine_log = os.path.join(BASE_DIR, "engine.log")
+        if os.path.exists(engine_log):
+            with open(engine_log, "r") as f:
+                combined_logs.extend(f.readlines()[-60:])
                 
-        # 2. Read Executor Logs
-        if os.path.exists("executor.log"):
-            with open("executor.log", "r") as f:
-                combined_logs.extend(f.readlines()[-50:])
+        # 2. Read Executor Logs from absolute path
+        executor_log = os.path.join(BASE_DIR, "executor.log")
+        if os.path.exists(executor_log):
+            with open(executor_log, "r") as f:
+                combined_logs.extend(f.readlines()[-40:])
                 
         # 3. Sort by timestamp (assuming standard format [YYYY-MM-DD HH:MM:SS])
         combined_logs.sort()
         
-        return jsonify(combined_logs[-60:])
+        return jsonify(combined_logs[-80:])
+    except Exception as e:
+        return jsonify([f"[!] API Log Error: {str(e)}"])
     except Exception as e:
         return jsonify([f"[!] Error reading logs: {str(e)}"])
 

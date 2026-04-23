@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import threading
 from datetime import datetime
 
 # --- INITIALIZE PATHS ---
@@ -15,7 +16,7 @@ def run_worker():
     print("[*] AI Trading Worker Process Initializing...")
     try:
         engine = PythonTradingEngine(app)
-        engine.log_to_file(">>> WORKER BOOTING: Elite Scanner Initialized <<<")
+        engine.log_to_file(">>> WORKER BOOTING: Institutional Elite Engine Ready <<<")
     except Exception as e:
         print(f"[!] Initialization Failed: {e}")
         return
@@ -23,7 +24,10 @@ def run_worker():
     while True:
         try:
             with app.app_context():
-                # 1. Check for Manual Trigger
+                # 1. Update Heartbeat First (Priority)
+                update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
+                
+                # 2. Check for Manual Trigger
                 stat = SystemStatus.query.first()
                 force_scan = False
                 if stat and stat.force_scan_trigger:
@@ -32,27 +36,27 @@ def run_worker():
                     db.session.commit()
                     force_scan = True
                 
-                # 2. Heartbeat & Status Update
-                update_system_status("Elite Scanner Active", engine.scanned_count, "Online")
-                
                 # 3. Market Open Check OR Forced Scan
                 if engine.is_market_open() or force_scan:
                     admin = db.session.query(User).filter_by(role='admin').first()
                     if admin:
-                        # Auto-login check
+                        # Auto-login check (Essential for 24/7 stability)
                         if admin.id not in user_sessions:
-                            engine.log_to_file(f"Logging in admin: {admin.username}")
+                            engine.log_to_file(f"Authenticating admin: {admin.username}")
                             login_angel_one(admin, app)
                         
                         if admin.id in user_sessions:
-                            # Dedicated Elite Scanning Loop
+                            # Start Deep Study Cycle
                             engine.scan_market(user_sessions[admin.id])
                         else:
-                            engine.log_to_file("[!] Admin login failed. Cannot scan.")
+                            engine.log_to_file("[!] Admin Login Missing. Please check Settings.")
                     
-                    time.sleep(2) # Faster scanning cycle
+                    time.sleep(2) # Optimized scanning cycle
                 else:
-                    time.sleep(5) # Idle mode
+                    # Idle Mode logging (Low frequency)
+                    if int(time.time()) % 600 == 0:
+                        engine.log_to_file("Market closed. Scanner in standby mode.")
+                    time.sleep(5)
                     
         except Exception as e:
             print(f"[!] Worker Loop Error: {e}")

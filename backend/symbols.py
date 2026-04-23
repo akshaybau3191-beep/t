@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 class SymbolManager:
     def __init__(self, cache_dir='/tmp'):
         self.cache_path = os.path.join(cache_dir, 'scrip_master.json')
-        self.url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+        self.url = "https://margincalculator.angelbroking.com/OpenAPI_Standard/token/ScripMaster.json"
         self.symbols = []
         self.last_update = 0
         
