@@ -47,13 +47,12 @@ class RiskManager:
         total_cap = user_config.starting_capital or 100000
         risk_amt = (user_config.risk_per_trade_pct / 100) * total_cap
         
-        # LATEST NSE LOT SIZES (2024-2025)
+        # CUSTOM LOT SIZES AS PER USER REQUEST
         lot_sizes = {
-            'NIFTY': 25,       # Changed from 50 to 25
-            'BANKNIFTY': 15,   # Standardized at 15
-            'FINNIFTY': 40      # Standardized at 40
+            'NIFTY': 65,
+            'BANKNIFTY': 30
         }
-        market_lot = lot_sizes.get(index, 25)
+        market_lot = lot_sizes.get(index, 65)
         
         if option_price <= 0: return 0
         
