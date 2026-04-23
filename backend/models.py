@@ -79,6 +79,7 @@ class SystemStatus(db.Model):
     engine_status = db.Column(db.String(20), default='Offline')
     engine_task = db.Column(db.String(100), default='Waiting')
     scanned_count = db.Column(db.Integer, default=0)
+    force_scan_trigger = db.Column(db.Boolean, default=False)
     last_update = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
 def update_system_status(task, count, status='Online'):

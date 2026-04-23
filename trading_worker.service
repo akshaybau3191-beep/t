@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Trading Bot Independent Worker
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/Ai-Bot-Trader
+ExecStart=/home/ubuntu/Ai-Bot-Trader/venv/bin/python worker.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

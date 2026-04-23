@@ -115,29 +115,8 @@ def init_db():
     except Exception as e:
         print(f"[!] Database Initialization Error: {e}")
 
-_scanner_thread = None
-
-def start_scanner_locked():
-    """Start or Restart the scanner thread safely (Singleton)."""
-    global _scanner_thread
-    try:
-        # Check if already running
-        if _scanner_thread and _scanner_thread.is_alive():
-            print("[*] AI Engine already running. Skipping duplicate start.")
-            return
-
-        engine = PythonTradingEngine(app)
-        app.trading_engine = engine
-        _scanner_thread = threading.Thread(target=engine.run_scanner, daemon=True)
-        _scanner_thread.start()
-        print("[*] AI Engine Scanner started successfully.")
-        engine.log_to_file(">>> AI Engine Scanner Booting Up...")
-    except Exception as e:
-        print(f"[!] Engine Start Error: {e}")
-
-# Run initialization on every import/worker start
+# Run initialization
 init_db()
-start_scanner_locked()
 
 # --- ROUTES ---
 
@@ -534,27 +513,22 @@ def approve_sub():
 @app.route('/api/admin/start_engine', methods=['POST'])
 @admin_required
 def force_start_engine():
-    # Force Start a fresh engine instance
-    try:
-        start_scanner_locked()
-        return jsonify({'success': True, 'message': 'AI Engine Restarted Successfully!'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Restart Failed: {str(e)}'})
+    from backend.models import SystemStatus
+    stat = SystemStatus.query.first()
+    if stat:
+        stat.force_scan_trigger = True
+        db.session.commit()
+    return jsonify({'success': True, 'message': 'Engine Restart/Scan Triggered!'})
 
 @app.route('/api/admin/force_scan', methods=['POST'])
 @admin_required
 def force_scan():
-    # Trigger an immediate scan regardless of market hours
-    if hasattr(app, 'trading_engine'):
-        # We'll use a special flag or just call scan directly if session exists
-        from backend.engine import user_sessions
-        admin = db.session.query(User).filter_by(role='admin').first()
-        if admin and admin.id in user_sessions:
-            thread = threading.Thread(target=app.trading_engine.scan_market, args=(user_sessions[admin.id],), daemon=True)
-            thread.start()
-            return jsonify({'success': True, 'message': 'Manual Scan Triggered!'})
-        return jsonify({'success': False, 'message': 'Admin not logged into Angel One. Please save broker config first.'})
-    return jsonify({'success': False, 'message': 'Engine not initialized. Press Restart Engine first.'})
+    from backend.models import SystemStatus
+    stat = SystemStatus.query.first()
+    if stat:
+        stat.force_scan_trigger = True
+        db.session.commit()
+    return jsonify({'success': True, 'message': 'Manual Scan Requested!'})
 
 
 @app.route('/api/admin/reload_config', methods=['POST'])
