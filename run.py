@@ -3,10 +3,6 @@ import sys
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 # --- VENDORIZED DEPENDENCIES ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,6 +10,10 @@ MODULES_DIR = os.path.join(BASE_DIR, 'modules')
 if os.path.exists(MODULES_DIR):
     sys.path.insert(0, MODULES_DIR)
     print(f"[*] Local modules path initialized: {MODULES_DIR}")
+
+from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
 
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
