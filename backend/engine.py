@@ -60,6 +60,15 @@ class PythonTradingEngine:
         self.scanned_count = 0
         self.option_candles = {} # token -> [candles]
     
+    def log_to_file(self, msg):
+        try:
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "engine.log")
+            with open(log_path, 'a') as f:
+                f.write(f"[{timestamp}] {msg}\n")
+            print(f"[{timestamp}] {msg}")
+        except: pass
+
     def is_market_open(self):
         if os.getenv('DEBUG_SCAN') == 'true': return True
         now_utc = datetime.now(timezone.utc)
@@ -80,6 +89,7 @@ class PythonTradingEngine:
                 
                 if self.is_market_open():
                     self.current_task = "Market Open: Preparing Scanner"
+                    self.log_to_file(self.current_task)
                     with self.app.app_context():
                         update_system_status(self.current_task, self.scanned_count)
                         admin = db.session.query(User).filter_by(role='admin').first()
@@ -88,6 +98,7 @@ class PythonTradingEngine:
                                 # Auto-login admin if session missing
                                 if admin.id not in user_sessions:
                                     self.current_task = "Logging into Angel One..."
+                                    self.log_to_file(self.current_task)
                                     update_system_status(self.current_task, self.scanned_count)
                                     login_angel_one(admin, self.app)
                                 
@@ -101,6 +112,7 @@ class PythonTradingEngine:
                 else:
                     # After market hours: self-improve
                     self.current_task = "Market Closed: Waiting"
+                    self.log_to_file("Market is closed. Scanner idling...")
                     with self.app.app_context():
                         update_system_status(self.current_task, self.scanned_count)
                     now_min = now.hour * 60 + now.minute
@@ -172,16 +184,16 @@ class PythonTradingEngine:
                         
                         # AI Scanning: Update UI
                         self.current_task = f"AI Scanning {name}: {opt_info['symbol']} ({analysis['signal_strength']}%)"
+                        self.log_to_file(self.current_task)
                         with self.app.app_context():
                             update_system_status(self.current_task, self.scanned_count)
                         
-                        # OPTION BUYING ONLY: We only dispatch if it's a clear BUY signal and score >= threshold
-                        # In strategy_manager.analyze_option, the 'signal' might be 'BUY' or 'SELL'
+                        # OPTION BUYING ONLY
                         if analysis['signal_strength'] >= min_score and analysis['signal'] == 'BUY':
-                            self.current_task = f"Signal Found: {opt_info['symbol']} ({analysis['signal_strength']}%)"
+                            self.log_to_file(f"🎯 SIGNAL FOUND: {opt_info['symbol']} at {analysis['signal_strength']}% Confidence")
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
             except Exception as e:
-                print(f"[!] Advanced Scanning Error for {name}: {e}")
+                self.log_to_file(f"Error scanning {name}: {e}")
             except Exception as e:
                 print(f"[!] Advanced Scanning Error for {name}: {e}")
 

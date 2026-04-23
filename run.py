@@ -312,6 +312,33 @@ def market_candles(index):
         'analysis': analysis
     })
 
+@app.route('/api/user/toggle_mode', methods=['POST'])
+@login_required
+def toggle_execution_mode():
+    user = db.session.query(User).get(session['user_id'])
+    if user and user.config:
+        current = user.config.trading_mode
+        user.config.trading_mode = 'LIVE' if current == 'PAPER' else 'PAPER'
+        db.session.commit()
+        return jsonify({'success': True, 'mode': user.config.trading_mode})
+    return jsonify({'success': False})
+
+@app.route('/api/user/engine_logs', methods=['GET'])
+@login_required
+def get_engine_logs():
+    # Return last 50 lines of logs
+    try:
+        # We'll write engine logs to a specific file
+        log_path = os.path.join(BASE_DIR, "engine.log")
+        if not os.path.exists(log_path):
+            return jsonify([])
+        
+        with open(log_path, 'r') as f:
+            lines = f.readlines()
+            return jsonify(lines[-50:])
+    except:
+        return jsonify(["[!] Could not read engine logs"])
+
 @app.route('/api/user/stats', methods=['GET'])
 @login_required
 def user_stats():
