@@ -62,12 +62,14 @@ class PythonTradingEngine:
     
     def log_to_file(self, msg):
         try:
-            timestamp = datetime.now().strftime('%H:%M:%S')
-            log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "engine.log")
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log_path = os.path.join(self.app.root_path, "engine.log")
             with open(log_path, 'a') as f:
                 f.write(f"[{timestamp}] {msg}\n")
-            print(f"[{timestamp}] {msg}")
-        except: pass
+            # Also write to stdout for journalctl logs
+            print(f"[{timestamp}] {msg}", flush=True)
+        except Exception as e:
+            print(f"Log Error: {e}")
 
     def is_market_open(self):
         if os.getenv('DEBUG_SCAN') == 'true': return True
@@ -137,13 +139,15 @@ class PythonTradingEngine:
                 if not ltp_resp.get('status'): continue
                 ltp = float(ltp_resp['data']['ltp'])
 
-                self.current_task = f"Finding {name} strikes..."
+                self.log_to_file(f">>> Scanning {name} Options (LTP: {ltp})...")
                 options = self.symbol_manager.get_options(name, ltp, range_pts=400)
                 self.scanned_count = len(options)
                 
                 if not options:
-                    print(f"[!] No active {name} options found in range.")
+                    self.log_to_file(f"[!] No active {name} options found in +/- 400 range.")
                     continue
+
+                self.log_to_file(f"[*] Found {len(options)} options. Starting AI analysis...")
 
                 self.current_task = f"Scanning {len(options)} {name} scripts"
                 

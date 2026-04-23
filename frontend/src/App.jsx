@@ -105,10 +105,23 @@ const Dashboard = () => {
   }, [logs]);
 
   const toggleMode = async () => {
-    const res = await axios.post('/api/user/toggle_mode');
-    if (res.data.success) {
-       fetchStats();
-    }
+    try {
+      const res = await axios.post('/api/user/toggle_mode');
+      if (res.data.success) {
+         alert(`Mode switched to ${res.data.mode}`);
+         fetchStats();
+      }
+    } catch (err) { alert('Failed to switch mode'); }
+  };
+
+  const restartEngine = async () => {
+    try {
+      const res = await axios.post('/api/admin/start_engine');
+      if (res.data.success) {
+        alert('AI Engine Restart Command Sent!');
+        fetchStats();
+      }
+    } catch (err) { alert('Failed to restart engine'); }
   };
 
   return (
@@ -125,9 +138,16 @@ const Dashboard = () => {
          </div>
          <div className="quick-actions">
             {stats?.user_role === 'admin' && (
-              <button onClick={() => axios.post('/api/admin/start_engine')} className="action-btn-circle" title="Restart Engine">
-                 <Play size={18} />
-              </button>
+              <>
+                <button onClick={() => {
+                   axios.post('/api/admin/force_scan').then(res => alert(res.data.message));
+                }} className="action-btn-circle secondary" title="Manual Scan Now">
+                   <Zap size={18} />
+                </button>
+                <button onClick={restartEngine} className="action-btn-circle" title="Restart Engine">
+                   <Play size={18} />
+                </button>
+              </>
             )}
          </div>
       </div>

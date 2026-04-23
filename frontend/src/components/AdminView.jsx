@@ -140,7 +140,10 @@ const AdminView = () => {
           <button onClick={() => axios.post('/api/admin/start_engine')} className="m3-btn secondary" style={{ flex: 1, minWidth: '150px' }}>
             RESTART AI ENGINE
           </button>
-          <button onClick={() => axios.post('/api/admin/reload_config', { min_confidence_score: globalConfidence })} className="m3-btn primary" style={{ flex: 1, minWidth: '150px' }}>
+          <button onClick={async () => {
+              const res = await axios.post('/api/admin/reload_config', { min_confidence_score: globalConfidence });
+              alert(res.data.message || 'Strategy Updated!');
+            }} className="m3-btn primary" style={{ flex: 1, minWidth: '150px' }}>
             UPDATE STRATEGY
           </button>
         </div>

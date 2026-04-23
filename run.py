@@ -525,9 +525,27 @@ def approve_sub():
 @app.route('/api/admin/start_engine', methods=['POST'])
 @admin_required
 def force_start_engine():
-    # Force Start
-    start_scanner_locked()
-    return jsonify({'success': True, 'message': 'AI Engine Restarted'})
+    # Force Start a fresh engine instance
+    try:
+        start_scanner_locked()
+        return jsonify({'success': True, 'message': 'AI Engine Restarted Successfully!'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Restart Failed: {str(e)}'})
+
+@app.route('/api/admin/force_scan', methods=['POST'])
+@admin_required
+def force_scan():
+    # Trigger an immediate scan regardless of market hours
+    if hasattr(app, 'trading_engine'):
+        # We'll use a special flag or just call scan directly if session exists
+        from backend.engine import user_sessions
+        admin = db.session.query(User).filter_by(role='admin').first()
+        if admin and admin.id in user_sessions:
+            thread = threading.Thread(target=app.trading_engine.scan_market, args=(user_sessions[admin.id],), daemon=True)
+            thread.start()
+            return jsonify({'success': True, 'message': 'Manual Scan Triggered!'})
+        return jsonify({'success': False, 'message': 'Admin not logged into Angel One. Please save broker config first.'})
+    return jsonify({'success': False, 'message': 'Engine not initialized. Press Restart Engine first.'})
 
 
 @app.route('/api/admin/reload_config', methods=['POST'])
