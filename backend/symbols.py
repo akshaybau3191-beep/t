@@ -61,17 +61,18 @@ class SymbolManager:
                 return datetime.max
             except: return datetime.max
 
-        # 1. Aggressive Filtering for NIFTY
+        # 1. Pattern-Based Filtering for NIFTY
+        # philosophy: NIFTY + DDMMMYY + STRIKE + CE/PE
         relevant = [
             s for s in self.symbols 
-            if (s.get('name') == name or name in s.get('symbol', ''))
+            if s.get('symbol', '').startswith('NIFTY')
             and s.get('exch_seg') == 'NFO' 
             and s.get('instrumenttype') == 'OPTIDX'
         ]
         
         all_expiries = list(set([s.get('expiry') for s in relevant if s.get('expiry')]))
         if not all_expiries:
-            print(f"[!] CRITICAL: No expiries found for {name} in master list!")
+            print(f"[!] CRITICAL: No NIFTY symbols found in master list!")
             return []
 
         sorted_expiries = sorted(all_expiries, key=parse_expiry)
@@ -79,11 +80,10 @@ class SymbolManager:
         future_expiries = [e for e in sorted_expiries if parse_expiry(e).date() >= today.date()]
         
         if not future_expiries:
-            print(f"[!] No future expiries found. Today: {today.date()} | All found: {sorted_expiries[:3]}")
+            print(f"[!] No future expiries found for NIFTY. Found: {sorted_expiries[:3]}")
             return []
 
         current_expiry = future_expiries[0]
-        print(f"[*] Found Expiries: {future_expiries[:3]}")
         print(f"[*] Targeting Expiry: {current_expiry}")
         
         # Filter by expiry and strike range
@@ -99,8 +99,8 @@ class SymbolManager:
                         
                     if strike_min <= strike <= strike_max:
                         symbol = s.get('symbol', '')
-                        # Ensure it's NIFTY and not BANKNIFTY/FINNIFTY
-                        if "NIFTY" in symbol and "BANK" not in symbol and "FIN" not in symbol:
+                        # Philosophy: Must contain CE or PE
+                        if 'CE' in symbol or 'PE' in symbol:
                             opt_type = 'CE' if 'CE' in symbol else 'PE'
                             options.append({
                                 'symbol': symbol,
