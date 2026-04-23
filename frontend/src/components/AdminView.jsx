@@ -136,12 +136,15 @@ const AdminView = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button onClick={() => axios.post('/api/admin/kill_switch', { active: true })} className="m3-btn danger" style={{ flex: 1 }}>
-            EMERGENCY KILL SWITCH
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button onClick={() => axios.post('/api/admin/start_engine')} className="m3-btn secondary" style={{ flex: 1, minWidth: '150px' }}>
+            RESTART AI ENGINE
           </button>
-          <button onClick={() => axios.post('/api/admin/reload_config', { min_confidence_score: globalConfidence })} className="m3-btn primary" style={{ flex: 1 }}>
-            UPDATE & RELOAD AI
+          <button onClick={() => axios.post('/api/admin/reload_config', { min_confidence_score: globalConfidence })} className="m3-btn primary" style={{ flex: 1, minWidth: '150px' }}>
+            UPDATE STRATEGY
+          </button>
+          <button onClick={() => axios.post('/api/admin/kill_switch', { active: true })} className="m3-btn danger" style={{ flex: 1, minWidth: '150px' }}>
+            KILL SWITCH
           </button>
         </div>
       </div>

@@ -35,8 +35,12 @@ const SettingsView = () => {
   };
 
   const saveBroker = async () => {
-    await axios.post('/api/user/broker-config', brokerConfig);
-    alert('Broker configuration saved!');
+    try {
+      const res = await axios.post('/api/user/broker-config', brokerConfig);
+      alert(res.data.message || 'Broker configuration saved!');
+    } catch (err) {
+      alert('Error saving configuration.');
+    }
   };
 
   const copyToClipboard = (text) => {
@@ -109,9 +113,31 @@ const SettingsView = () => {
       <div className="section-header" style={{ marginTop: '32px' }}>
         <Briefcase size={20} className="icon-accent" />
         <h2>Broker Configuration (Angel One)</h2>
+        <div className={`trading-mode-pill ${brokerConfig.trading_mode === 'LIVE' ? 'live' : 'paper'}`}>
+          {brokerConfig.trading_mode} MODE
+        </div>
       </div>
 
       <div className="m3-card settings-card">
+        <div className="input-group" style={{ marginBottom: '16px' }}>
+          <label>Execution Mode</label>
+          <div className="mode-toggle">
+            <button 
+              className={brokerConfig.trading_mode === 'PAPER' ? 'active' : ''}
+              onClick={() => setBrokerConfig({...brokerConfig, trading_mode: 'PAPER'})}
+            >
+              PAPER TRADING
+            </button>
+            <button 
+              className={brokerConfig.trading_mode === 'LIVE' ? 'active' : ''}
+              onClick={() => setBrokerConfig({...brokerConfig, trading_mode: 'LIVE'})}
+            >
+              LIVE TRADING
+            </button>
+          </div>
+          <p className="input-hint">Warning: LIVE mode will execute real orders on your account.</p>
+        </div>
+
         <div className="input-grid">
           <div className="input-group">
             <label>API Key</label>
@@ -222,6 +248,15 @@ const SettingsView = () => {
         .icon-btn:hover { background: rgba(255, 255, 255, 0.1); }
         .primary-btn { background: var(--accent); color: #000; font-weight: 600; }
         .secondary-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        
+        .trading-mode-pill { font-size: 10px; padding: 4px 10px; border-radius: 4px; font-weight: 800; letter-spacing: 1px; }
+        .trading-mode-pill.paper { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .trading-mode-pill.live { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+
+        .mode-toggle { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 12px; }
+        .mode-toggle button { flex: 1; border: none; padding: 10px; border-radius: 8px; background: transparent; color: #fff; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.3s; }
+        .mode-toggle button.active { background: var(--accent); color: #000; }
+
         .alert-card.warning { margin-top: 32px; display: flex; gap: 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); padding: 16px; border-radius: 12px; color: #f59e0b; align-items: flex-start; }
         .alert-card.warning strong { color: #fbbf24; }
       `}</style>

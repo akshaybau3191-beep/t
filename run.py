@@ -208,10 +208,15 @@ def user_broker_config():
         user.config.client_code = data.get('client_code')
         user.config.password = data.get('password')
         user.config.totp_secret = data.get('totp_secret')
+        user.config.trading_mode = data.get('trading_mode', 'PAPER')
         db.session.commit()
-        # Automatically login after save
-        login_angel_one(user, app)
-        return jsonify({'success': True})
+        
+        # Automatically login after save to verify credentials
+        success = login_angel_one(user, app)
+        if success:
+            return jsonify({'success': True, 'message': 'Logged in successfully!'})
+        else:
+            return jsonify({'success': True, 'message': 'Saved, but login failed. Check credentials.'})
     
     callback_url = f"{request.host_url.rstrip('/')}/api/angel/callback/{user.username}"
     postback_url = f"{request.host_url.rstrip('/')}/api/angel/postback/{user.username}"
@@ -491,6 +496,21 @@ def approve_sub():
         db.session.commit()
         return jsonify({'success': True})
     return jsonify({'success': False})
+
+@app.route('/api/admin/start_engine', methods=['POST'])
+@admin_required
+def force_start_engine():
+    # Attempt to clear lock and start
+    try:
+        lock_file = "/tmp/trading_bot_scanner.lock"
+        if os.path.exists(lock_file):
+            try: os.remove(lock_file)
+            except: pass
+        
+        start_scanner_locked()
+        return jsonify({'success': True, 'message': 'Engine start command sent'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/api/admin/kill_switch', methods=['POST'])
 @admin_required
