@@ -132,36 +132,23 @@ const Dashboard = () => {
          </div>
       </div>
 
-      <div className="stats-grid">
-        <div className="m3-card scanner-card">
-          <div className="card-header">
-            <Cpu size={20} className="icon-accent" />
-            <h3>AI Engine Scanner</h3>
-          </div>
-          <div className="scanner-status">
-            <div className="status-header">
-              <div className={`status-pill ${stats?.engine_status === 'Online' ? 'active' : 'offline'}`}>
-                {stats?.engine_status || 'Offline'}
-              </div>
-              <div className="task-name">{stats?.engine_task || 'Waiting...'}</div>
-            </div>
-            <div className="task-details">
-              <span>{stats?.scanned_count || 0} Scripts Analysed</span>
-              <span className="live-badge">NIFTY ONLY</span>
-            </div>
-          </div>
-        </div>
-
+      <div className="stats-grid single">
         <div className="m3-card pnl-card">
-          <h3>Portfolio P&L</h3>
+          <div className="card-header">
+            <TrendingUp size={20} className="icon-accent" />
+            <h3>Portfolio P&L</h3>
+          </div>
           <div className="pnl-value" style={{ color: stats?.daily_pnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
             ₹{stats?.daily_pnl?.toFixed(2) || '0.00'}
           </div>
-          <p>Real Profit: ₹{stats?.total_real_profit?.toFixed(2) || '0.00'}</p>
+          <div className="pnl-details">
+             <span>Real Profit: <strong>₹{stats?.total_real_profit?.toFixed(2) || '0.00'}</strong></span>
+             <span className="scanned-pill">{stats?.scanned_count || 0} Analysed</span>
+          </div>
         </div>
       </div>
 
-      <div className="terminal-container m3-card">
+      <div className="terminal-container m3-card active">
          <div className="terminal-header">
             <Terminal size={16} />
             <span>AI Engine Live Console</span>
@@ -195,7 +182,9 @@ const Dashboard = () => {
         .mode-toggle-btn.live { background: rgba(244, 67, 54, 0.2); color: #f44336; }
         .action-btn-circle { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
         
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .stats-grid.single { display: grid; grid-template-columns: 1fr; margin-bottom: 24px; }
+        .pnl-details { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 14px; opacity: 0.8; }
+        .scanned-pill { background: rgba(255, 255, 255, 0.1); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--accent); }
         .m3-card { background: rgba(255, 255, 255, 0.05); padding: 24px; border-radius: 24px; border: 1px solid var(--glass-border); }
         .status-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
         .status-pill { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
@@ -203,7 +192,7 @@ const Dashboard = () => {
         .status-pill.offline { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
         .task-name { font-size: 18px; font-weight: 700; color: var(--accent); }
         
-        .terminal-container { background: #000; border: 1px solid #333; padding: 16px; height: 250px; display: flex; flex-direction: column; margin-bottom: 24px; }
+        .terminal-container { background: #000; border: 1px solid #333; padding: 16px; height: 350px; display: flex; flex-direction: column; margin-bottom: 24px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
         .terminal-header { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #666; margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 8px; }
         .terminal-content { flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6; color: #0f0; }
         .log-line { margin-bottom: 4px; }

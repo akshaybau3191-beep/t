@@ -116,21 +116,17 @@ def init_db():
         print(f"[!] Database Initialization Error: {e}")
 
 def start_scanner_locked():
-    """Start the scanner thread with a file lock to ensure only one instance runs across Gunicorn workers."""
-    # Use /tmp for the lock file to avoid permission issues in the project directory
-    lock_file_path = "/tmp/trading_bot_scanner.lock"
+    """Start or Restart the scanner thread."""
     try:
-        app.scanner_lock_file = open(lock_file_path, 'w')
-        fcntl.flock(app.scanner_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        
+        # If an old engine exists, try to stop it (optional)
         engine = PythonTradingEngine(app)
-        app.trading_engine = engine # Store on app
+        app.trading_engine = engine
         thread = threading.Thread(target=engine.run_scanner, daemon=True)
         thread.start()
-        print("[*] Scanner thread started successfully with lock.")
-    except (IOError, OSError):
-        # This is normal for workers that are not the first one
-        pass
+        print("[*] AI Engine Scanner started/restarted successfully.")
+        engine.log_to_file(">>> AI Engine Scanner Booting Up...")
+    except Exception as e:
+        print(f"[!] Engine Start Error: {e}")
 
 # Run initialization on every import/worker start
 init_db()
@@ -529,30 +525,10 @@ def approve_sub():
 @app.route('/api/admin/start_engine', methods=['POST'])
 @admin_required
 def force_start_engine():
-    # Attempt to clear lock and start
-    try:
-        lock_file = "/tmp/trading_bot_scanner.lock"
-        if os.path.exists(lock_file):
-            try: os.remove(lock_file)
-            except: pass
-        
-        start_scanner_locked()
-        return jsonify({'success': True, 'message': 'Engine start command sent'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+    # Force Start
+    start_scanner_locked()
+    return jsonify({'success': True, 'message': 'AI Engine Restarted'})
 
-@app.route('/api/admin/kill_switch', methods=['POST'])
-@admin_required
-def toggle_kill_switch():
-    if hasattr(app, 'trading_engine'):
-        engine = app.trading_engine
-        data = request.json
-        if data.get('active'):
-            engine.risk_manager.activate_kill_switch()
-        else:
-            engine.risk_manager.deactivate_kill_switch()
-        return jsonify({'success': True, 'active': engine.risk_manager.kill_switch_active})
-    return jsonify({'success': False, 'message': 'Engine not found'})
 
 @app.route('/api/admin/reload_config', methods=['POST'])
 @admin_required
@@ -638,10 +614,6 @@ def schedule_autologin():
 
 schedule_autologin()
 
-@app.route('/api/shutdown', methods=['POST'])
-@admin_required
-def shutdown():
-    os._exit(0)
 
 # --- FRONTEND SERVING ---
 FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')

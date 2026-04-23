@@ -143,17 +143,7 @@ const AdminView = () => {
           <button onClick={() => axios.post('/api/admin/reload_config', { min_confidence_score: globalConfidence })} className="m3-btn primary" style={{ flex: 1, minWidth: '150px' }}>
             UPDATE STRATEGY
           </button>
-          <button onClick={() => axios.post('/api/admin/kill_switch', { active: true })} className="m3-btn danger" style={{ flex: 1, minWidth: '150px' }}>
-            KILL SWITCH
-          </button>
         </div>
-      </div>
-
-      <div className="danger-zone" style={{ marginTop: '40px' }}>
-        <button onClick={shutdownServer} className="m3-btn danger-outline">
-          <Power size={18} />
-          <span>Shutdown Server</span>
-        </button>
       </div>
 
       <style>{`

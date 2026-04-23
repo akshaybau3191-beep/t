@@ -119,25 +119,6 @@ const SettingsView = () => {
       </div>
 
       <div className="m3-card settings-card">
-        <div className="input-group" style={{ marginBottom: '16px' }}>
-          <label>Execution Mode</label>
-          <div className="mode-toggle">
-            <button 
-              className={brokerConfig.trading_mode === 'PAPER' ? 'active' : ''}
-              onClick={() => setBrokerConfig({...brokerConfig, trading_mode: 'PAPER'})}
-            >
-              PAPER TRADING
-            </button>
-            <button 
-              className={brokerConfig.trading_mode === 'LIVE' ? 'active' : ''}
-              onClick={() => setBrokerConfig({...brokerConfig, trading_mode: 'LIVE'})}
-            >
-              LIVE TRADING
-            </button>
-          </div>
-          <p className="input-hint">Warning: LIVE mode will execute real orders on your account.</p>
-        </div>
-
         <div className="input-grid">
           <div className="input-group">
             <label>API Key</label>
