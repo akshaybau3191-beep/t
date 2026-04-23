@@ -187,7 +187,7 @@ const Dashboard = () => {
                   </div>
                ))
             )}
-            <div ref={terminalEndRef} />
+            <div ref={logEndRef} />
          </div>
       </div>
 
