@@ -131,9 +131,8 @@ class PythonTradingEngine:
                 self.execute_paper_trade(user, symbol, token, analysis)
                 return
 
-            # 3. Check Role & Subscription
+            # 3. Check Subscription & Mode
             mode = user.config.trading_mode
-            if user.role == 'admin': mode = 'PAPER'
             
             if user.expiry_date and user.expiry_date < datetime.now().date():
                 self.log_to_file(f"⚠️ {user.username} - Subscription Expired. (PAPER MODE)")
