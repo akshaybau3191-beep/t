@@ -611,19 +611,29 @@ def update_user_risk_config():
         return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/api/webhook/angelone', methods=['POST'])
-def angelone_webhook():
+@app.route('/api/webhook/angelone/<username>', methods=['POST'])
+def angelone_webhook(username=None):
     """Handle Postback/Webhook from Angel One to update positions real-time"""
     try:
         data = request.json
-        print(f"📡 [POSTBACK] Received: {data}")
+        print(f"📡 [POSTBACK] Received for {username or 'All'}: {data}")
         
-        # Logic to find which user this belongs to (usually based on clientcode)
+        # 1. Identify User by clientcode (Most reliable)
         client_code = data.get('clientcode')
-        if not client_code: return jsonify({'status': 'ignored'})
+        from backend.models import AngelConfig, User
         
-        from backend.models import AngelConfig
-        config = db.session.query(AngelConfig).filter_by(client_code=client_code).first()
-        if not config: return jsonify({'status': 'user_not_found'})
+        if client_code:
+            config = db.session.query(AngelConfig).filter_by(client_code=client_code).first()
+        elif username:
+            # Fallback to username if clientcode is missing for some reason
+            user = db.session.query(User).filter_by(username=username).first()
+            config = user.config if user else None
+        else:
+            return jsonify({'status': 'ignored'})
+
+        if not config: 
+            print(f"[!] Webhook User Not Found: {client_code or username}")
+            return jsonify({'status': 'user_not_found'})
         
         # Update trade and position in DB
         # This will be handled by the specialized update_position_from_trade function
