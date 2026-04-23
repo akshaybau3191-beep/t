@@ -42,12 +42,12 @@ class RiskManager:
 
     def calculate_lot_size(self, user_config, index, option_price):
         """
-        Calculate lots based on user's risk per trade pct and market lot sizes.
+        Calculate lots based on total capital: Lots = Capital / (Price * LotSize)
+        Round down to lower integer.
         """
         total_cap = user_config.starting_capital or 100000
-        risk_amt = (user_config.risk_per_trade_pct / 100) * total_cap
         
-        # CUSTOM LOT SIZES AS PER USER REQUEST
+        # CUSTOM LOT SIZES
         lot_sizes = {
             'NIFTY': 65,
             'BANKNIFTY': 30
@@ -56,19 +56,15 @@ class RiskManager:
         
         if option_price <= 0: return 0
         
-        # 1. Calculate quantity based on Risk Amount
-        max_qty_risk = int(risk_amt / option_price)
+        # Formula: Lot = Capital / (LTP * LotSize)
+        price_per_lot = option_price * market_lot
         
-        # 2. Calculate quantity based on Total Capital (Margin Check)
-        max_qty_capital = int((total_cap * 0.5) / option_price)
-        
-        final_qty = min(max_qty_risk, max_qty_capital)
-        
-        # Round down to nearest market lot
-        num_lots = final_qty // market_lot
-        
-        # Minimum 1 lot
-        return max(1, num_lots) * market_lot
+        if price_per_lot > total_cap:
+            print(f"[*] Insufficient capital for {index} (Price/Lot: ₹{price_per_lot:.0f}, Cap: ₹{total_cap:.0f})")
+            return 0 # 0.8 lot case
+            
+        num_lots = int(total_cap / price_per_lot)
+        return num_lots * market_lot # Return total quantity
 
     def activate_kill_switch(self):
         self.kill_switch_active = True

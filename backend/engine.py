@@ -324,6 +324,11 @@ class PythonTradingEngine:
         # 2. Dynamic Lot Sizing & Slippage
         user_cfg = user.config
         lot_size = self.risk_manager.calculate_lot_size(user_cfg, index, data['price'])
+        
+        if lot_size <= 0:
+            print(f"[*] Skipping trade for {user.username} - Insufficient capital for 1 lot.")
+            return
+            
         slippage = 0.001 # 0.1% buffer
         limit_price = data['price'] * (1 + slippage) if signal == 'BUY' else data['price'] * (1 - slippage)
         
