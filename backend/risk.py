@@ -42,25 +42,34 @@ class RiskManager:
 
     def calculate_lot_size(self, user_config, index, option_price):
         """
-        Calculate lots based on user's risk per trade pct.
+        Calculate lots based on user's risk per trade pct and market lot sizes.
         """
         total_cap = user_config.starting_capital or 100000
         risk_amt = (user_config.risk_per_trade_pct / 100) * total_cap
         
-        # Lot sizes for Angel One (Standard)
-        lot_sizes = {'NIFTY': 50, 'BANKNIFTY': 15, 'FINNIFTY': 40}
-        lot_size = lot_sizes.get(index, 50)
+        # LATEST NSE LOT SIZES (2024-2025)
+        lot_sizes = {
+            'NIFTY': 25,       # Changed from 50 to 25
+            'BANKNIFTY': 15,   # Standardized at 15
+            'FINNIFTY': 40      # Standardized at 40
+        }
+        market_lot = lot_sizes.get(index, 25)
         
         if option_price <= 0: return 0
         
-        # Max quantity we can buy with risk amount
-        # In scalping, risk_amt often represents the absolute loss we can take on the trade.
-        # But here we use it to limit exposure.
-        max_qty = int(risk_amt / option_price)
+        # 1. Calculate quantity based on Risk Amount
+        max_qty_risk = int(risk_amt / option_price)
         
-        # Round down to nearest lot
-        lots = max_qty // lot_size
-        return max(1, lots) * lot_size # Minimum 1 lot
+        # 2. Calculate quantity based on Total Capital (Margin Check)
+        max_qty_capital = int((total_cap * 0.5) / option_price)
+        
+        final_qty = min(max_qty_risk, max_qty_capital)
+        
+        # Round down to nearest market lot
+        num_lots = final_qty // market_lot
+        
+        # Minimum 1 lot
+        return max(1, num_lots) * market_lot
 
     def activate_kill_switch(self):
         self.kill_switch_active = True
