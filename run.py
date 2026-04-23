@@ -580,10 +580,20 @@ schedule_autologin()
 def shutdown():
     os._exit(0)
 
-# Catch-all route for API-only server (optional, could just be removed)
-@app.route('/')
-def api_status():
-    return jsonify({'status': 'online', 'service': 'AI Bot Trader API'})
+# --- FRONTEND SERVING ---
+FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    if path != "" and os.path.exists(os.path.join(FRONTEND_DIST, path)):
+        return send_from_directory(FRONTEND_DIST, path)
+    else:
+        # Fallback to index.html for React routing
+        if os.path.exists(os.path.join(FRONTEND_DIST, 'index.html')):
+            return send_from_directory(FRONTEND_DIST, 'index.html')
+        # Fallback if frontend is not built
+        return jsonify({'status': 'online', 'service': 'AI Bot Trader API', 'message': 'Frontend not built. Run npm run build in frontend folder.'})
 
 if __name__ == '__main__':
     # When running directly (development), use the Flask dev server
