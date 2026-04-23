@@ -33,7 +33,7 @@ class UserSupervisor(threading.Thread):
                 with app.app_context():
                     user = db.session.get(User, self.user_id)
                     if not user or not user.is_active:
-                        print(f"[*] Stopping supervisor for {self.user_id} (User inactive/deleted)")
+                        log_to_file(f"[*] Stopping supervisor for {self.user_id} (User inactive/deleted)")
                         self.is_running = False
                         break
                     
@@ -42,7 +42,7 @@ class UserSupervisor(threading.Thread):
                     new_signals = Signal.query.filter(Signal.id > last_processed_signal_id).all()
                     
                     for sig in new_signals:
-                        print(f"🔔 Signal {sig.id} received for {user.username}")
+                        log_to_file(f"🔔 Signal {sig.id} received for {user.username}")
                         try:
                             analysis = json.loads(sig.strategy_snapshot)
                             # Auto-login if needed
@@ -55,7 +55,7 @@ class UserSupervisor(threading.Thread):
                                 self.engine.execute_for_user(user, sig.index, analysis, 'BUY', sig.symbol, sig.token)
                             
                         except Exception as e:
-                            print(f"[!] Execution error for {user.username} on signal {sig.id}: {e}")
+                            log_to_file(f"[!] Execution error for {user.username} on signal {sig.id}: {e}")
                         
                         last_processed_signal_id = sig.id
                     
@@ -63,12 +63,12 @@ class UserSupervisor(threading.Thread):
                     self.engine.monitor_user_positions(user)
                     
             except Exception as e:
-                print(f"[!] Supervisor Error for User {self.user_id}: {e}")
+                log_to_file(f"[!] Supervisor Error for User {self.user_id}: {e}")
             
             time.sleep(1) # Tight monitoring loop
 
 def run_multi_threaded_executor():
-    print("🚀 DISTRIBUTED MULTI-THREADED EXECUTOR STARTING...")
+    log_to_file("🚀 DISTRIBUTED MULTI-THREADED EXECUTOR STARTING...")
     engine = PythonTradingEngine(app)
     supervisors = {}
     
@@ -93,7 +93,7 @@ def run_multi_threaded_executor():
                         del supervisors[uid]
                         
         except Exception as e:
-            print(f"[!] Master Executor Error: {e}")
+            log_to_file(f"[!] Master Executor Error: {e}")
             
         time.sleep(10) # Refresh user list every 10s
 

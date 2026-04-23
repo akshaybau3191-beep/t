@@ -350,17 +350,27 @@ def toggle_execution_mode():
     return jsonify({'success': False})
 
 @app.route('/api/user/engine_logs', methods=['GET'])
-@login_required
 def get_engine_logs():
-    # Return last 50 lines of logs
+    """Combined logs from Scanner and Executor workers"""
     try:
-        log_path = os.path.join(BASE_DIR, "engine.log")
-        if not os.path.exists(log_path):
-            return jsonify(["[i] Waiting for AI Engine to initialize..."])
+        combined_logs = []
         
-        with open(log_path, 'r') as f:
-            lines = f.readlines()
-            return jsonify(lines[-50:])
+        # 1. Read Scanner Logs
+        if os.path.exists("engine.log"):
+            with open("engine.log", "r") as f:
+                combined_logs.extend(f.readlines()[-50:])
+                
+        # 2. Read Executor Logs
+        if os.path.exists("executor.log"):
+            with open("executor.log", "r") as f:
+                combined_logs.extend(f.readlines()[-50:])
+                
+        # 3. Sort by timestamp (assuming standard format [YYYY-MM-DD HH:MM:SS])
+        # This keeps the combined timeline accurate
+        combined_logs.sort()
+        
+        # Return last 60 lines of combined stream
+        return jsonify(combined_logs[-60:])
     except Exception as e:
         return jsonify([f"[!] Error reading logs: {str(e)}"])
 
