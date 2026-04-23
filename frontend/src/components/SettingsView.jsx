@@ -123,12 +123,34 @@ const SettingsView = () => {
             />
           </div>
           <div className="input-group">
+            <label>API Secret</label>
+            <input 
+              type="password" 
+              value={brokerConfig.api_secret}
+              onChange={(e) => setBrokerConfig({...brokerConfig, api_secret: e.target.value})}
+              className="m3-input"
+              placeholder="Enter SmartAPI Secret"
+            />
+          </div>
+        </div>
+        <div className="input-grid">
+          <div className="input-group">
             <label>Client Code</label>
             <input 
               type="text" 
               value={brokerConfig.client_code}
               onChange={(e) => setBrokerConfig({...brokerConfig, client_code: e.target.value})}
               className="m3-input"
+            />
+          </div>
+          <div className="input-group">
+            <label>Trading PIN / Password</label>
+            <input 
+              type="password" 
+              value={brokerConfig.password}
+              onChange={(e) => setBrokerConfig({...brokerConfig, password: e.target.value})}
+              className="m3-input"
+              placeholder="Enter your 4-digit PIN or Password"
             />
           </div>
         </div>
