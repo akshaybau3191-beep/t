@@ -106,6 +106,20 @@ const AdminView = () => {
         </table>
       </div>
 
+      <div className="section-header" style={{ marginTop: '32px' }}>
+        <Power size={20} className="icon-accent" />
+        <h2>System Controls</h2>
+      </div>
+
+      <div className="m3-card settings-card" style={{ display: 'flex', gap: '12px', flexDirection: 'row' }}>
+        <button onClick={() => axios.post('/api/admin/kill_switch', { active: true })} className="m3-btn danger" style={{ flex: 1 }}>
+          EMERGENCY KILL SWITCH
+        </button>
+        <button onClick={() => axios.post('/api/admin/reload_config')} className="m3-btn primary" style={{ flex: 1 }}>
+          RELOAD CONFIG
+        </button>
+      </div>
+
       <div className="danger-zone" style={{ marginTop: '40px' }}>
         <button onClick={shutdownServer} className="m3-btn danger-outline">
           <Power size={18} />

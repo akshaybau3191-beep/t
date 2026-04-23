@@ -428,6 +428,7 @@ def submit_sub_request():
         username=user.username,
         upi_ref=upi_ref,
         proof_image=filename,
+        amount=399.0,
         status='PENDING'
     )
     db.session.add(new_req)
