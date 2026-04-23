@@ -333,7 +333,24 @@ class PythonTradingEngine:
         mode = user_cfg.trading_mode
         exec_reason = "Admin Signal"
         
-        # Check if we can afford at least 1 lot for LIVE
+        # --- PROFESSIONAL GUARDRAILS ---
+        
+        # 1. ADMIN PROTECTION: Admin only circulates calls, never trades LIVE
+        if user.role == 'admin':
+            mode = 'PAPER'
+            exec_reason = "Admin Signal Generation"
+            lot_size = market_lot # 1 lot for admin tracking
+            
+        # 2. SUBSCRIPTION CHECK: If expired, force PAPER trade only
+        now = datetime.now()
+        if user.role != 'admin': # Only check subscribers
+            if not user.expiry_date or user.expiry_date < now:
+                print(f"[!] User {user.username} has no valid subscription. Forcing PAPER mode.")
+                mode = 'PAPER'
+                exec_reason = "Subscription Expired"
+                lot_size = market_lot # 1 lot for paper
+
+        # 3. CAPITAL CHECK: If LIVE but capital is low, fallback to PAPER
         if mode == 'LIVE' and lot_size <= 0:
             print(f"[*] Insufficient capital for LIVE trade (Need ₹{price_per_lot:.0f}, Have ₹{total_cap:.0f})")
             print(f"[*] Downgrading to PAPER for {user.username} to track signal.")
@@ -341,7 +358,6 @@ class PythonTradingEngine:
             lot_size = market_lot # Use 1 lot for paper tracking
             exec_reason = "Insufficient Capital (Live -> Paper)"
         elif lot_size <= 0:
-            # Even for paper, if price is somehow 0
             return
 
         slippage = 0.001 
