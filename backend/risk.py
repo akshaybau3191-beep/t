@@ -40,6 +40,17 @@ class RiskManager:
             
         return True, "Ready"
 
+    def calculate_lots(self, user, option_price):
+        """Standard interface for the Elite Engine to get lot counts"""
+        if not user.config: return 0
+        total_cap = user.config.starting_capital or 100000
+        market_lot = 65 # Default Nifty
+        
+        if option_price <= 0: return 0
+        price_per_lot = option_price * market_lot
+        
+        return int(total_cap / price_per_lot)
+
     def calculate_lot_size(self, user_config, index, option_price):
         """
         Calculate lots based on total capital: Lots = Capital / (Price * LotSize)
