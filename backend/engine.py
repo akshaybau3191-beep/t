@@ -456,51 +456,62 @@ class PythonTradingEngine:
             'pnl': 0.0
         })
 
-    def monitor_positions(self):
-        """Monitor open positions for target/stop-loss with real LTP"""
+    def monitor_user_positions(self, user):
+        """Monitor positions for a single user (called by dedicated thread)"""
+        if user.id not in user_sessions: return
+        obj = user_sessions[user.id]
+        from backend.models import db, Position
+        
         with self.app.app_context():
-            from backend.models import db, User, Position
-            active_users = db.session.query(User).filter_by(is_active=True).all()
-            for user in active_users:
-                if user.id not in user_sessions: continue
-                obj = user_sessions[user.id]
-                positions = db.session.query(Position).filter(Position.user_id == user.id, Position.quantity != 0).all()
-                for pos in positions:
-                    try:
-                        # Fetch real LTP from Angel One
-                        # Note: 'NSE' or 'NFO' depends on the instrument. For simplicity, we try/catch or use stored exchange info.
-                        # For now, we assume NSE/NFO based on symbol suffix or similar, or just try ltpData.
-                        exchange = "NFO" if any(x in pos.symbol for x in ["NIFTY", "BANKNIFTY", "FINNIFTY"]) else "NSE"
-                        ltp_resp = obj.ltpData(exchange, pos.symbol, pos.token)
+            positions = db.session.query(Position).filter(Position.user_id == user.id, Position.quantity != 0).all()
+            for pos in positions:
+                try:
+                    exchange = "NFO" if any(x in pos.symbol for x in ["NIFTY", "BANKNIFTY", "FINNIFTY"]) else "NSE"
+                    ltp_resp = obj.ltpData(exchange, pos.symbol, pos.token)
+                    
+                    if ltp_resp.get('status') and ltp_resp.get('data'):
+                        ltp = float(ltp_resp['data']['ltp'])
+                        pos.last_price = ltp
                         
-                        if ltp_resp.get('status') and ltp_resp.get('data'):
-                            ltp = float(ltp_resp['data']['ltp'])
-                            pos.last_price = ltp
-                            
-                            # Update unrealized P&L
-                            if pos.quantity > 0: # Long
-                                pos.unrealized_pnl = pos.quantity * (ltp - pos.avg_price)
-                            else: # Short
-                                pos.unrealized_pnl = abs(pos.quantity) * (pos.avg_price - ltp)
-                            
-                            # Master Exit Logic: Using Dynamic SL/TP from Database
-                            exit_triggered = False
-                            if pos.quantity > 0: # Long
-                                if pos.sl_price and ltp <= pos.sl_price:
-                                    exit_triggered = True
-                                    reason = f"STOP LOSS HIT at {ltp}"
-                                elif pos.tp_price and ltp >= pos.tp_price:
-                                    exit_triggered = True
-                                    reason = f"TAKE PROFIT HIT at {ltp}"
-                            
-                            if exit_triggered:
-                                self.log_to_file(f"🛡️ EXIT SIGNAL: {pos.symbol} | {reason}")
-                                self.exit_position(user, pos, ltp)
-                        else:
-                            print(f"[!] LTP Fetch Failed for {pos.symbol}: {ltp_resp.get('message')}")
-                    except Exception as e:
-                        print(f"[!] Monitoring Error for {pos.symbol}: {e}")
-            db.session.commit()
+                        # Update unrealized P&L
+                        pos.unrealized_pnl = pos.quantity * (ltp - pos.avg_price)
+                        
+                        # --- TRAILING STOP LOSS LOGIC ---
+                        # If price moves up by 1%, move SL up by trailing_sl_pct
+                        profit_pct = (pos.unrealized_pnl / (abs(pos.quantity) * pos.avg_price)) * 100
+                        
+                        if profit_pct > 1.0: # Start trailing after 1% profit
+                            trail_buffer = pos.avg_price * (user.config.trailing_sl_pct / 100)
+                            new_tsl = ltp - trail_buffer
+                            if not pos.tsl_price or new_tsl > pos.tsl_price:
+                                pos.tsl_price = new_tsl
+
+                        # --- EXIT LOGIC ---
+                        exit_triggered = False
+                        reason = ""
+                        
+                        # Check Target
+                        if pos.tp_price and ltp >= pos.tp_price:
+                            exit_triggered = True
+                            reason = f"TARGET HIT at {ltp}"
+                        
+                        # Check Trailing SL or Hard SL
+                        effective_sl = pos.tsl_price or pos.sl_price
+                        if effective_sl and ltp <= effective_sl:
+                            exit_triggered = True
+                            reason = f"STOP LOSS HIT at {ltp}"
+                        
+                        if exit_triggered:
+                            print(f"🛡️ EXIT SIGNAL for {user.username}: {pos.symbol} | {reason}")
+                            self.exit_position(user, pos, ltp)
+                    
+                    db.session.commit()
+                except Exception as e:
+                    print(f"[!] Monitor Error for {user.username} {pos.symbol}: {e}")
+
+    def monitor_positions(self):
+        """Deprecated: Now handled by individual user threads in executor.py"""
+        pass
 
     def check_user_risk(self, user):
         """Check if user is allowed to trade LIVE based on their P&L limits"""
@@ -557,85 +568,67 @@ class PythonTradingEngine:
         update_position_from_trade(user.id, mock_exit, self.app, mode=pos.mode)
 
 def update_position_from_trade(user_id, trade_data, app, mode='PAPER'):
+    """Handles both manual mock trades and Real-Time Postbacks from Angel One"""
     from backend.models import db, Trade, Position, DailyStats
+    from datetime import date
     
     with app.app_context():
-        # Use averageprice if available, otherwise price
-        price = float(trade_data.get('averageprice', trade_data.get('price', 0)))
+        # Extact data from Angel One postback format or mock format
+        order_id = str(trade_data.get('orderid', trade_data.get('order_id', '')))
+        symbol = trade_data.get('tradingsymbol', trade_data.get('symbol'))
+        token = trade_data.get('symboltoken', trade_data.get('token'))
+        tx_type = trade_data.get('transactiontype', trade_data.get('transaction_type'))
+        qty = int(trade_data.get('quantity', trade_data.get('fillqty', 0)))
+        price = float(trade_data.get('averageprice', trade_data.get('fillprice', trade_data.get('price', 0))))
+        status = trade_data.get('status', 'COMPLETE')
         
-        # 1. Record the Trade
-        trade = Trade(
-            user_id=user_id,
-            order_id=trade_data.get('orderid'),
-            symbol=trade_data.get('tradingsymbol'),
-            token=trade_data.get('symboltoken'),
-            transaction_type=trade_data.get('transactiontype'),
-            quantity=int(trade_data.get('quantity', 0)),
-            price=price,
-            status=trade_data.get('status', 'COMPLETE'),
-            mode=mode,
-            strategy_snapshot=trade_data.get('strategy_snapshot')
-        )
-        db.session.add(trade)
-        
-        if trade.status != 'COMPLETE':
-            db.session.commit()
-            return
+        if not order_id or status != 'COMPLETE': return
 
+        # 1. Record/Update the Trade
+        trade = db.session.query(Trade).filter_by(order_id=order_id).first()
+        if not trade:
+            trade = Trade(
+                user_id=user_id,
+                order_id=order_id,
+                symbol=symbol,
+                token=token,
+                transaction_type=tx_type,
+                quantity=qty,
+                price=price,
+                status=status,
+                mode=mode
+            )
+            db.session.add(trade)
+        
         # 2. Update Position
-        pos = db.session.query(Position).filter_by(user_id=user_id, token=trade.token).first()
+        pos = db.session.query(Position).filter_by(user_id=user_id, token=token).first()
         if not pos:
             pos = Position(
-                user_id=user_id, 
-                symbol=trade.symbol, 
-                token=trade.token, 
-                quantity=0, 
-                avg_price=0.0, 
-                realized_pnl=0.0, 
-                mode=mode,
-                sl_price=trade_data.get('sl'), # Store SL Price
-                tp_price=trade_data.get('tp')  # Store TP Price
+                user_id=user_id, symbol=symbol, token=token, quantity=0, 
+                avg_price=0.0, mode=mode,
+                sl_price=trade_data.get('sl'),
+                tp_price=trade_data.get('tp')
             )
             db.session.add(pos)
-        else:
-            # Update SL/TP for existing positions if provided
-            if trade_data.get('sl'): pos.sl_price = trade_data.get('sl')
-            if trade_data.get('tp'): pos.tp_price = trade_data.get('tp')
 
-        # Ensure quantity is not None
-        if pos.quantity is None: pos.quantity = 0
-        if pos.avg_price is None: pos.avg_price = 0.0
-        if pos.realized_pnl is None: pos.realized_pnl = 0.0
-
-        qty = trade.quantity
-        price = trade.price
-        
-        if trade.transaction_type == 'BUY':
+        if tx_type == 'BUY':
             if pos.quantity < 0: # Closing Short
                 closed_qty = min(abs(pos.quantity), qty)
-                realized = closed_qty * (pos.avg_price - price)
-                pos.realized_pnl += realized
+                pos.realized_pnl += closed_qty * (pos.avg_price - price)
                 pos.quantity += qty
-                # If we reversed to long
-                if pos.quantity > 0:
-                    pos.avg_price = price
             else: # Increasing Long
-                new_total_qty = pos.quantity + qty
-                pos.avg_price = ((pos.avg_price * pos.quantity) + (price * qty)) / new_total_qty
-                pos.quantity = new_total_qty
+                new_total = (pos.quantity or 0) + qty
+                pos.avg_price = (((pos.avg_price or 0.0) * (pos.quantity or 0)) + (price * qty)) / new_total
+                pos.quantity = new_total
         else: # SELL
             if pos.quantity > 0: # Closing Long
                 closed_qty = min(pos.quantity, qty)
-                realized = closed_qty * (price - pos.avg_price)
-                pos.realized_pnl += realized
+                pos.realized_pnl += closed_qty * (price - pos.avg_price)
                 pos.quantity -= qty
-                # If we reversed to short
-                if pos.quantity < 0:
-                    pos.avg_price = price
             else: # Increasing Short
-                new_total_qty = abs(pos.quantity) + qty
-                pos.avg_price = ((pos.avg_price * abs(pos.quantity)) + (price * qty)) / new_total_qty
-                pos.quantity -= qty # More negative
+                new_total = abs(pos.quantity or 0) + qty
+                pos.avg_price = (((pos.avg_price or 0.0) * abs(pos.quantity or 0)) + (price * qty)) / new_total
+                pos.quantity -= qty
 
         # 3. Update Daily Stats
         stats = db.session.query(DailyStats).filter_by(user_id=user_id, date=date.today()).first()

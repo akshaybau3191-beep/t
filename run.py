@@ -610,6 +610,31 @@ def update_user_risk_config():
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)})
 
+@app.route('/api/webhook/angelone', methods=['POST'])
+def angelone_webhook():
+    """Handle Postback/Webhook from Angel One to update positions real-time"""
+    try:
+        data = request.json
+        print(f"📡 [POSTBACK] Received: {data}")
+        
+        # Logic to find which user this belongs to (usually based on clientcode)
+        client_code = data.get('clientcode')
+        if not client_code: return jsonify({'status': 'ignored'})
+        
+        from backend.models import AngelConfig
+        config = db.session.query(AngelConfig).filter_by(client_code=client_code).first()
+        if not config: return jsonify({'status': 'user_not_found'})
+        
+        # Update trade and position in DB
+        # This will be handled by the specialized update_position_from_trade function
+        from backend.engine import update_position_from_trade
+        update_position_from_trade(config.user_id, data, app, mode='LIVE')
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"[!] Webhook Error: {e}")
+        return jsonify({'success': False}), 500
+
 def daily_autologin_job():
     """Background task to login all users at 9:15 AM IST"""
     print("[*] Running Daily Auto-Login Job...")
@@ -617,18 +642,24 @@ def daily_autologin_job():
         users = db.session.query(User).filter_by(is_active=True).all()
         for user in users:
             if user.config and user.config.api_key:
-                print(f"[*] Auto-logging in user: {user.username}")
-                login_angel_one(user, app)
+                try:
+                    from backend.engine import login_angel_one
+                    print(f"[*] Auto-logging in user: {user.username}")
+                    login_angel_one(user, app)
+                except Exception as e:
+                    print(f"[!] Auto-login failed for {user.username}: {e}")
 
 def schedule_autologin():
     """Simple thread-based scheduler for 9:15 AM IST"""
     def run():
         while True:
-            # Check every minute
-            now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
-            if now.hour == 9 and now.minute == 15:
-                daily_autologin_job()
-                time.sleep(65) # Skip rest of the minute
+            try:
+                # Check every minute
+                now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+                if now.hour == 9 and now.minute == 15:
+                    daily_autologin_job()
+                    time.sleep(65) # Skip rest of the minute
+            except: pass
             time.sleep(30)
     threading.Thread(target=run, daemon=True).start()
 

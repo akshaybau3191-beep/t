@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -27,6 +28,7 @@ class AngelConfig(db.Model):
     max_daily_loss_pct = db.Column(db.Float, default=3.0)
     risk_per_trade_pct = db.Column(db.Float, default=2.0)
     min_confidence_score = db.Column(db.Integer, default=75)
+    trailing_sl_pct = db.Column(db.Float, default=1.0) # Move SL by 1% for every 1% profit
 
 class Trade(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -39,8 +41,8 @@ class Trade(db.Model):
     price = db.Column(db.Float)
     status = db.Column(db.String(20)) # COMPLETE, REJECTED, etc.
     mode = db.Column(db.String(10), default='PAPER') # LIVE/PAPER
-    reason = db.Column(db.String(100)) # Reason for mode (e.g., 'Insufficient Capital')
-    strategy_snapshot = db.Column(db.Text) # JSON string of indicator values
+    reason = db.Column(db.String(100))
+    strategy_snapshot = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 class Position(db.Model):
@@ -49,13 +51,14 @@ class Position(db.Model):
     symbol = db.Column(db.String(50))
     token = db.Column(db.String(20))
     avg_price = db.Column(db.Float, default=0.0)
-    quantity = db.Column(db.Integer, default=0) # Positive for Long, Negative for Short
+    quantity = db.Column(db.Integer, default=0)
     realized_pnl = db.Column(db.Float, default=0.0)
     unrealized_pnl = db.Column(db.Float, default=0.0)
     last_price = db.Column(db.Float, default=0.0)
-    mode = db.Column(db.String(10), default='PAPER') # LIVE/PAPER
+    mode = db.Column(db.String(10), default='PAPER')
     sl_price = db.Column(db.Float, nullable=True)
     tp_price = db.Column(db.Float, nullable=True)
+    tsl_price = db.Column(db.Float, nullable=True) # Trailing SL Price
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
 class DailyStats(db.Model):
