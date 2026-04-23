@@ -177,12 +177,13 @@ class PythonTradingEngine:
                         if token not in self.option_candles or not self.option_candles[token]:
                             self.option_candles[token] = self.fetch_option_candles(smart_api, token)
                         
-                        # Modular Signal Generation
+                        # Modular Signal Generation (Step-by-Step Thinking)
                         analysis = self.strategy_manager.analyze_option(
                             self.option_candles[token], 
                             o_data, 
                             opt_info, 
-                            ltp
+                            ltp,
+                            logger=self.log_to_file
                         )
                         
                         # Find Admin's Threshold
@@ -190,15 +191,20 @@ class PythonTradingEngine:
                             admin = db.session.query(User).filter_by(role='admin').first()
                             min_score = admin.config.min_confidence_score if admin and admin.config else 75
                         
-                        # AI Scanning: Update UI
-                        self.current_task = f"AI Scanning {name}: {opt_info['symbol']} ({analysis['signal_strength']}%)"
-                        self.log_to_file(self.current_task)
+                        # AI Verdict Logging
+                        verdict_msg = f"Final Verdict for {opt_info['symbol']}: {analysis['signal_strength']}% Confidence ({analysis['signal']})"
+                        if analysis['signal_strength'] < min_score:
+                            verdict_msg += f" - [IGNORED: Threshold is {min_score}%]"
+                        self.log_to_file(verdict_msg)
+
+                        # Update UI
+                        self.current_task = f"AI Scanning: {opt_info['symbol']} ({analysis['signal_strength']}%)"
                         with self.app.app_context():
                             update_system_status(self.current_task, self.scanned_count)
                         
                         # OPTION BUYING ONLY
                         if analysis['signal_strength'] >= min_score and analysis['signal'] == 'BUY':
-                            self.log_to_file(f"🎯 SIGNAL FOUND: {opt_info['symbol']} at {analysis['signal_strength']}% Confidence")
+                            self.log_to_file(f"🎯 SIGNAL APPROVED: Dispatching {opt_info['symbol']} Order...")
                             self.dispatch_trade(name, analysis, opt_info['type'], opt_info['symbol'], opt_info['token'])
             except Exception as e:
                 self.log_to_file(f"Error scanning {name}: {e}")
