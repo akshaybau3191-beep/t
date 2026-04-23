@@ -170,10 +170,15 @@ const Dashboard = () => {
             <h3>AI Engine Scanner</h3>
           </div>
           <div className="scanner-status">
-            <div className="task-name">{stats?.engine_task || 'Offline'}</div>
+            <div className="status-header">
+              <div className={`status-pill ${stats?.engine_status === 'Online' ? 'active' : 'offline'}`}>
+                {stats?.engine_status || 'Offline'}
+              </div>
+              <div className="task-name">{stats?.engine_task || 'Waiting...'}</div>
+            </div>
             <div className="task-details">
               <span>{stats?.scanned_count || 0} Scripts Analysed</span>
-              <span className="live-badge">LIVE</span>
+              <span className="live-badge">NIFTY ONLY</span>
             </div>
           </div>
         </div>
@@ -208,7 +213,11 @@ const Dashboard = () => {
         .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
         .icon-accent { color: var(--accent); }
         .scanner-status { margin-top: 12px; }
-        .task-name { font-size: 20px; font-weight: 700; color: var(--accent); }
+        .status-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .status-pill { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .status-pill.active { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.3); }
+        .status-pill.offline { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+        .task-name { font-size: 18px; font-weight: 700; color: var(--accent); }
         .task-details { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; opacity: 0.7; }
         .pnl-value { font-size: 32px; font-weight: 700; margin: 8px 0; }
         .indices-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }

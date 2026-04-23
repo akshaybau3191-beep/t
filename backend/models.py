@@ -73,3 +73,26 @@ class SubscriptionRequest(db.Model):
     status = db.Column(db.String(20), default='PENDING') # PENDING, APPROVED, REJECTED
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
     username = db.Column(db.String(50))
+
+class SystemStatus(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    engine_status = db.Column(db.String(20), default='Offline')
+    engine_task = db.Column(db.String(100), default='Waiting')
+    scanned_count = db.Column(db.Integer, default=0)
+    last_update = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+def update_system_status(task, count, status='Online'):
+    """Helper to update shared status in DB"""
+    try:
+        stat = SystemStatus.query.first()
+        if not stat:
+            stat = SystemStatus(engine_status=status, engine_task=task, scanned_count=count)
+            db.session.add(stat)
+        else:
+            stat.engine_status = status
+            stat.engine_task = task
+            stat.scanned_count = count
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[!] Status Update Error: {e}")

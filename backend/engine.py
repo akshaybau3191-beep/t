@@ -5,7 +5,7 @@ import numpy as np
 import time
 from datetime import datetime, timedelta, date, timezone
 from SmartApi import SmartConnect
-from backend.models import db, User, AngelConfig
+from backend.models import db, User, AngelConfig, update_system_status
 from backend.symbols import SymbolManager
 from backend.risk import RiskManager
 from backend.logger import AuditLogger
@@ -81,23 +81,28 @@ class PythonTradingEngine:
                 if self.is_market_open():
                     self.current_task = "Market Open: Preparing Scanner"
                     with self.app.app_context():
+                        update_system_status(self.current_task, self.scanned_count)
                         admin = db.session.query(User).filter_by(role='admin').first()
                         if admin:
                             if self.check_daily_protection(admin):
                                 # Auto-login admin if session missing
                                 if admin.id not in user_sessions:
                                     self.current_task = "Logging into Angel One..."
+                                    update_system_status(self.current_task, self.scanned_count)
                                     login_angel_one(admin, self.app)
                                 
                                 if admin.id in user_sessions:
                                     self.scan_market(user_sessions[admin.id])
                             
                         self.current_task = "Monitoring Active Positions"
+                        update_system_status(self.current_task, self.scanned_count)
                         self.monitor_positions()
                     time.sleep(10) # Scanner frequency
                 else:
                     # After market hours: self-improve
                     self.current_task = "Market Closed: Waiting"
+                    with self.app.app_context():
+                        update_system_status(self.current_task, self.scanned_count)
                     now_min = now.hour * 60 + now.minute
                     if 945 <= now_min <= 960: # 3:45 PM to 4:00 PM
                         self.current_task = "AI: Optimizing Strategy"
@@ -167,6 +172,8 @@ class PythonTradingEngine:
                         
                         # AI Scanning: Update UI
                         self.current_task = f"AI Scanning {name}: {opt_info['symbol']} ({analysis['signal_strength']}%)"
+                        with self.app.app_context():
+                            update_system_status(self.current_task, self.scanned_count)
                         
                         # OPTION BUYING ONLY: We only dispatch if it's a clear BUY signal and score >= threshold
                         # In strategy_manager.analyze_option, the 'signal' might be 'BUY' or 'SELL'

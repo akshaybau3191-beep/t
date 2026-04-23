@@ -341,16 +341,21 @@ def user_stats():
     years = days_active / 365.0
     cagr = ((current_value / starting_capital) ** (1 / years) - 1) * 100 if starting_capital > 0 else 0
     
-    # 4. Market Status & Current Task
-    engine = PythonTradingEngine(app)
-    is_open = engine.is_market_open()
+    # 4. Market Status & Shared Engine Status
+    from backend.models import SystemStatus
+    is_open = PythonTradingEngine(app).is_market_open()
     
-    engine_task = "Starting..."
-    scanned_count = 0
-    if hasattr(app, 'trading_engine'):
-        engine_task = app.trading_engine.current_task
-        scanned_count = app.trading_engine.scanned_count
+    # Read shared status from DB (updated by the single scanner thread)
+    sys_status = SystemStatus.query.first()
+    engine_task = sys_status.engine_task if sys_status else "Waiting..."
+    scanned_count = sys_status.scanned_count if sys_status else 0
+    engine_status = sys_status.engine_status if sys_status else "Offline"
     
+    # If the engine hasn't updated in 60 seconds, mark as offline
+    if sys_status and (datetime.now() - sys_status.last_update).total_seconds() > 60:
+        engine_status = "Offline"
+        engine_task = "Scanner Inactive"
+
     return jsonify({
         'daily_pnl': daily_pnl,
         'trades': daily_trades,
@@ -358,6 +363,7 @@ def user_stats():
         'cagr': cagr,
         'is_market_open': is_open,
         'engine_task': engine_task,
+        'engine_status': engine_status,
         'scanned_count': scanned_count
     })
 
