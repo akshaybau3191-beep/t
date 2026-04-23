@@ -9,7 +9,8 @@ class PythonTradingEngine:
         self.app = app
         self.scanned_count = 0
         self.current_task = "Idle"
-        self.log_path = "engine.log"
+        # Force absolute path for logs to ensure API can find them
+        self.log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "engine.log")
 
     def log_to_file(self, message):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

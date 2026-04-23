@@ -356,13 +356,15 @@ def get_engine_logs():
         combined_logs = []
         
         # 1. Read Scanner Logs
-        if os.path.exists("engine.log"):
-            with open("engine.log", "r") as f:
+        engine_log = os.path.join(BASE_DIR, "engine.log")
+        if os.path.exists(engine_log):
+            with open(engine_log, "r") as f:
                 combined_logs.extend(f.readlines()[-50:])
                 
         # 2. Read Executor Logs
-        if os.path.exists("executor.log"):
-            with open("executor.log", "r") as f:
+        exec_log = os.path.join(BASE_DIR, "executor.log")
+        if os.path.exists(exec_log):
+            with open(exec_log, "r") as f:
                 combined_logs.extend(f.readlines()[-50:])
                 
         # 3. Sort by timestamp (assuming standard format [YYYY-MM-DD HH:MM:SS])

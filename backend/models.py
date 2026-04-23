@@ -102,17 +102,22 @@ class Signal(db.Model):
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 def update_system_status(task, count, status='Online'):
-    """Helper to update shared status in DB"""
+    """Atomic Status Update to avoid Database Locks in Production"""
+    from sqlalchemy import text
     try:
-        stat = SystemStatus.query.first()
-        if not stat:
-            stat = SystemStatus(engine_status=status, engine_task=task, scanned_count=count)
-            db.session.add(stat)
-        else:
-            stat.engine_status = status
-            stat.engine_task = task
-            stat.scanned_count = count
-        db.session.commit()
+        # 1. Use a fresh, independent connection for the heartbeat
+        with db.engine.connect() as conn:
+            # Check if record exists
+            result = conn.execute(text("SELECT id FROM system_status LIMIT 1")).fetchone()
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            if result:
+                # Update existing
+                conn.execute(text(f"UPDATE system_status SET engine_status='{status}', engine_task='{task}', scanned_count={count}, last_update='{now}' WHERE id={result[0]}"))
+            else:
+                # Insert new
+                conn.execute(text(f"INSERT INTO system_status (engine_status, engine_task, scanned_count, last_update) VALUES ('{status}', '{task}', {count}, '{now}')"))
+            
+            conn.commit()
     except Exception as e:
-        db.session.rollback()
-        print(f"[!] Status Update Error: {e}")
+        print(f"[!] Atomic Heartbeat Failed: {e}")
