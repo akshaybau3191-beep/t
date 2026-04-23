@@ -6,9 +6,8 @@ After=network.target
 User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/Ai-Bot-Trader
-Environment="PATH=/home/ubuntu/Ai-Bot-Trader/venv/bin:/usr/local/bin:/usr/bin:/bin"
-# Production command
-ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 run:app
+# Use the gunicorn inside the venv to ensure all dependencies are loaded
+ExecStart=/home/ubuntu/Ai-Bot-Trader/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 run:app
 
 [Install]
 WantedBy=multi-user.target
