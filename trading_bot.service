@@ -6,8 +6,8 @@ After=network.target
 User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/Ai-Bot-Trader
-# Use the gunicorn inside the venv to ensure all dependencies are loaded
-ExecStart=/home/ubuntu/Ai-Bot-Trader/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 run:app
+# Using single worker and longer timeout to debug 502 error
+ExecStart=/home/ubuntu/Ai-Bot-Trader/venv/bin/gunicorn --workers 1 --timeout 120 --bind 0.0.0.0:8000 run:app
 
 [Install]
 WantedBy=multi-user.target
