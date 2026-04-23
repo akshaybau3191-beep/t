@@ -3,13 +3,11 @@ Description=Gunicorn instance to serve AI Trading Bot (React + Flask)
 After=network.target
 
 [Service]
-# User and Path restored for ubuntu environment
 User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/Ai-Bot-Trader
-# Note: Using venv if exists, fallback to system
 Environment="PATH=/home/ubuntu/Ai-Bot-Trader/venv/bin:/usr/local/bin:/usr/bin:/bin"
-# Run with gunicorn
+# Production command
 ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 run:app
 
 [Install]
